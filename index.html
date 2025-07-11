@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>출고 현황 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@latest/dist/chartjs-plugin-datalabels.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-base-100">
+    <!-- 헤더 -->
+    <header class="navbar bg-primary text-primary-content shadow-lg">
+        <div class="navbar-start">
+            <h1 class="text-xl font-bold">출고 현황 대시보드</h1>
+        </div>
+        <div class="navbar-end">
+            <div class="flex items-center gap-4">
+                <div class="badge badge-success" id="status-badge">연결됨</div>
+                <button class="btn btn-sm btn-ghost" id="refresh-btn">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    새로고침
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="container mx-auto p-6">
+        <!-- 통계 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-title">오늘 총 출고량</div>
+                <div class="stat-value text-primary" id="today-total">0</div>
+                <div class="stat-desc" id="today-desc">현재까지</div>
+            </div>
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-title">어제 마지막 출고량</div>
+                <div class="stat-value text-secondary" id="yesterday-last">0</div>
+                <div class="stat-desc" id="yesterday-desc">최종 기록</div>
+            </div>
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-title">3일 평균 출고수량</div>
+                <div class="stat-value text-accent" id="max-hourly">0</div>
+                <div class="stat-desc" id="max-hourly-desc">이전 3일 평균</div>
+            </div>
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-title">평균 시간당 출고량</div>
+                <div class="stat-value text-info" id="avg-hourly">0</div>
+                <div class="stat-desc" id="avg-hourly-desc">이전 3일 평균</div>
+            </div>
+        </div>
+
+        <!-- 차트 영역 -->
+        <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="card-title">시간별 출고 현황 (최근 3일)</h2>
+                    <div class="flex gap-2 items-center">
+                        <div class="flex gap-1">
+                            <div class="badge badge-primary">오늘</div>
+                            <div class="badge badge-error">어제</div>
+                            <div class="badge badge-success">그저께</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="w-full h-[600px]">
+                    <canvas id="hourly-chart"></canvas>
+                </div>
+                
+                <div class="mt-4 text-sm text-base-content/70">
+                    <p>• 0시부터 23시까지 시간별 누적 출고량을 나타냅니다 (23시가 하루 최종값)</p>
+                    <p>• 오늘 데이터는 실선, 어제는 점선, 그저께는 긴 점선으로 표시됩니다</p>
+                    <p>• 오늘 데이터의 각 포인트에는 값이 라벨로 표시되며, 예측값은 * 표시됩니다</p>
+                    <p>• 마지막 업데이트: <span id="last-update">-</span></p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 로딩 모달 -->
+    <dialog id="loading-modal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg">데이터 로딩 중...</h3>
+            <div class="py-4">
+                <progress class="progress progress-primary w-full"></progress>
+            </div>
+            <p class="text-sm text-base-content/70">구글 시트에서 데이터를 가져오고 있습니다.</p>
+        </div>
+    </dialog>
+
+    <!-- 에러 모달 -->
+    <dialog id="error-modal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg text-error">오류 발생</h3>
+            <p class="py-4" id="error-message">알 수 없는 오류가 발생했습니다.</p>
+            <div class="modal-action">
+                <button class="btn" onclick="document.getElementById('error-modal').close()">확인</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- JavaScript -->
+    <script src="js/dashboard.js"></script>
+    <script>
+        // 구글 시트 CSV URL
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQYW_XI-stT0t4KqqpDW0DcBud_teV8223_vupnZsO3DrbqRqZkwXBplXSld8sB_qEXL92Ckn7J8B29/pub?gid=572466553&single=true&output=csv';
+        
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('Page loaded, initializing dashboard...');
+                
+                // 대시보드 초기화
+                const dashboard = new Dashboard(CSV_URL, 'hourly-chart');
+                
+                // 전역에서 접근 가능하도록 설정
+                window.dashboard = dashboard;
+                
+                await dashboard.init();
+                
+                // 자동 새로고침 활성화 (10분 주기)
+                dashboard.startAutoRefresh(600000); // 10분마다 새로고침
+                
+                console.log('Dashboard initialization completed successfully');
+                
+            } catch (error) {
+                console.error('대시보드 초기화 실패:', error);
+                alert('대시보드 초기화에 실패했습니다: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

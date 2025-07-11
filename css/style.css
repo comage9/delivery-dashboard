@@ -1,0 +1,160 @@
+/* 커스텀 애니메이션 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 테이블 애니메이션 */
+.table-animate {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.table tbody tr {
+    animation: slideIn 0.3s ease-out;
+}
+
+.table tbody tr:nth-child(even) {
+    animation-delay: 0.05s;
+}
+
+.table tbody tr:nth-child(odd) {
+    animation-delay: 0.1s;
+}
+
+/* 로딩 상태 스타일 */
+.loading-overlay {
+    position: relative;
+}
+
+.loading-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 반응형 테이블 */
+@media (max-width: 768px) {
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.5rem 0.25rem;
+    }
+}
+
+/* 스크롤바 스타일링 */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 8px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 통계 카드 애니메이션 */
+.stats .stat {
+    animation: fadeIn 0.6s ease-out;
+}
+
+.stats .stat:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.stats .stat:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.stats .stat:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+/* 에러 및 성공 메시지 애니메이션 */
+.alert {
+    animation: slideIn 0.4s ease-out;
+}
+
+/* 버튼 호버 효과 */
+.btn:hover {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+}
+
+/* 카드 호버 효과 */
+.card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.3s ease;
+}
+
+/* 테이블 행 호버 효과 */
+.table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transition: background-color 0.2s ease;
+}
+
+/* 입력 필드 포커스 효과 */
+.input:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+/* 프린트 스타일 */
+@media print {
+    .navbar,
+    .footer,
+    .btn,
+    .dropdown {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #e5e7eb;
+    }
+    
+    .table {
+        font-size: 12px;
+    }
+    
+    .table th,
+    .table td {
+        padding: 4px;
+        border: 1px solid #e5e7eb;
+    }
+}

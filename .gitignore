@@ -1,0 +1,29 @@
+# Environment files
+env
+.env
+*.env
+
+# Log files
+*.log
+server.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Zone Identifier files
+*:Zone.Identifier
+
+# Zip files
+*.zip
+
+# Bug folder (temporary screenshots)
+bug/

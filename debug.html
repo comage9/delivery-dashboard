@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSV Debug</title>
+</head>
+<body>
+    <h1>CSV Data Debug</h1>
+    <div id="output"></div>
+    
+    <script>
+        async function debugCSV() {
+            try {
+                const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQYW_XI-stT0t4KqqpDW0DcBud_teV8223_vupnZsO3DrbqRqZkwXBplXSld8sB_qEXL92Ckn7J8B29/pub?gid=572466553&single=true&output=csv';
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(csvUrl)}`;
+                
+                console.log('Fetching data from:', proxyUrl);
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                
+                console.log('Response:', data);
+                console.log('CSV Content (first 500 chars):', data.contents.substring(0, 500));
+                
+                // base64 디코딩 처리
+                let csvContent = data.contents;
+                if (csvContent.startsWith('data:text/csv;base64,')) {
+                    console.log('Base64 encoded data detected, decoding...');
+                    const base64Data = csvContent.replace('data:text/csv;base64,', '');
+                    csvContent = atob(base64Data);
+                    console.log('Decoded CSV content (first 500 chars):', csvContent.substring(0, 500));
+                }
+                
+                // CSV 파싱 테스트
+                const lines = csvContent.trim().split('\n');
+                console.log('First line (headers):', lines[0]);
+                console.log('Second line (first data):', lines[1]);
+                console.log('Total lines:', lines.length);
+                
+                document.getElementById('output').innerHTML = `
+                    <h2>Base64 Detection:</h2>
+                    <p>${data.contents.startsWith('data:text/csv;base64,') ? 'Yes, base64 encoded' : 'No, plain text'}</p>
+                    <h2>Headers:</h2>
+                    <p>${lines[0]}</p>
+                    <h2>First Data Row:</h2>
+                    <p>${lines[1] || 'No data rows found'}</p>
+                    <h2>Total Lines:</h2>
+                    <p>${lines.length}</p>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('output').innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        debugCSV();
+    </script>
+</body>
+</html>
