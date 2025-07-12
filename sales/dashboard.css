@@ -1,0 +1,217 @@
+/* 대시보드 커스텀 스타일 */
+
+/* 글로벌 애니메이션 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* 페이지 로드 애니메이션 */
+.fade-in {
+    animation: fadeIn 0.6s ease-out;
+}
+
+.slide-in {
+    animation: slideIn 0.5s ease-out;
+}
+
+/* 스코어카드 호버 효과 */
+.stat:hover {
+    animation: pulse 0.3s ease-in-out;
+    cursor: pointer;
+}
+
+/* 차트 컨테이너 스타일 */
+.chart-container {
+    position: relative;
+    min-height: 320px;
+}
+
+/* 로딩 상태 */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+/* 테이블 행 호버 효과 */
+.table tbody tr:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+/* 필터 섹션 스타일 */
+.filter-section {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* 카드 호버 효과 */
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+/* 버튼 활성 상태 */
+.btn-active {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+/* 툴팁 스타일 */
+.custom-tooltip {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 반응형 차트 */
+@media (max-width: 768px) {
+    .chart-container {
+        min-height: 250px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+}
+
+/* 프린트 스타일 */
+@media print {
+    .navbar,
+    .filter-section,
+    .btn {
+        display: none !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #e2e8f0;
+    }
+    
+    body {
+        background: white !important;
+    }
+}
+
+/* 다크 테마 지원 */
+[data-theme="dark"] .custom-tooltip {
+    background: rgba(255, 255, 255, 0.9);
+    color: black;
+}
+
+[data-theme="dark"] .loading-overlay {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* 스크롤바 커스터마이징 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* 차트 로딩 애니메이션 */
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 320px;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chart-loading-text {
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* 에러 상태 */
+.chart-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 320px;
+    flex-direction: column;
+    gap: 16px;
+    color: #ef4444;
+}
+
+/* 데이터 없음 상태 */
+.no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* 필터 적용 표시 */
+.filter-applied {
+    position: relative;
+}
+
+.filter-applied::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    border: 2px solid white;
+}

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비즈니스 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body class="bg-base-100">
+    <!-- 헤더 -->
+    <header class="navbar bg-primary text-primary-content shadow-lg">
+        <div class="navbar-start">
+            <h1 class="text-xl font-bold">비즈니스 대시보드</h1>
+        </div>
+        <div class="navbar-end">
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                    </svg>
+                </div>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52 text-base-content">
+                    <li><a onclick="exportData()">데이터 내보내기</a></li>
+                    <li><a onclick="refreshDashboard()">새로고침</a></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <!-- 필터 섹션 -->
+    <section class="p-4 bg-base-200">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <!-- 날짜 범위 필터 -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">시작 날짜</span>
+                    </label>
+                    <input type="date" id="startDate" class="input input-bordered" value="2024-01-01">
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">종료 날짜</span>
+                    </label>
+                    <input type="date" id="endDate" class="input input-bordered" value="2024-01-10">
+                </div>
+                
+                <!-- 카테고리 필터 -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">카테고리</span>
+                    </label>
+                    <select id="categoryFilter" class="select select-bordered">
+                        <option value="">전체</option>
+                        <option value="전자제품">전자제품</option>
+                        <option value="의류">의류</option>
+                        <option value="식품">식품</option>
+                    </select>
+                </div>
+                
+                <!-- 지역 필터 -->
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-semibold">지역</span>
+                    </label>
+                    <select id="regionFilter" class="select select-bordered">
+                        <option value="">전체</option>
+                        <option value="서울">서울</option>
+                        <option value="부산">부산</option>
+                        <option value="대구">대구</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button id="applyFilters" class="btn btn-primary">필터 적용</button>
+                <button id="resetFilters" class="btn btn-outline">초기화</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 대시보드 메인 -->
+    <main class="container mx-auto p-6">
+        <!-- KPI 카드 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-figure text-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">총 매출</div>
+                <div class="stat-value text-primary" id="totalRevenue">0원</div>
+                <div class="stat-desc" id="revenueChange">전일 대비</div>
+            </div>
+            
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-figure text-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">총 방문자</div>
+                <div class="stat-value text-secondary" id="totalVisitors">0명</div>
+                <div class="stat-desc" id="visitorsChange">전일 대비</div>
+            </div>
+            
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-figure text-accent">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">평균 전환율</div>
+                <div class="stat-value text-accent" id="avgConversion">0%</div>
+                <div class="stat-desc" id="conversionChange">전일 대비</div>
+            </div>
+            
+            <div class="stat bg-base-200 rounded-lg">
+                <div class="stat-figure text-info">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                    </svg>
+                </div>
+                <div class="stat-title">평균 주문가치</div>
+                <div class="stat-value text-info" id="avgOrderValue">0원</div>
+                <div class="stat-desc" id="aovChange">전일 대비</div>
+            </div>
+        </div>
+
+        <!-- 차트 그리드 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 매출 트렌드 차트 -->
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">일별 매출 트렌드</h2>
+                    <div id="revenueTrendChart" class="h-80"></div>
+                </div>
+            </div>
+            
+            <!-- 카테고리별 매출 -->
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">카테고리별 매출</h2>
+                    <div id="categoryChart" class="h-80"></div>
+                </div>
+            </div>
+            
+            <!-- 지역별 성과 -->
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">지역별 성과</h2>
+                    <div id="regionChart" class="h-80"></div>
+                </div>
+            </div>
+            
+            <!-- 전환율 분석 -->
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">전환율 분석</h2>
+                    <div id="conversionChart" class="h-80"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상세 데이터 테이블 -->
+        <div class="card bg-base-200 shadow-xl mt-8">
+            <div class="card-body">
+                <h2 class="card-title">상세 데이터</h2>
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>카테고리</th>
+                                <th>지역</th>
+                                <th>매출</th>
+                                <th>방문자수</th>
+                                <th>전환율</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <!-- 동적으로 채워짐 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 스크립트 -->
+    <script src="data-manager.js"></script>
+    <script src="chart-renderer.js"></script>
+    <script>
+        // 전역 변수
+        let dataManager;
+        let chartRenderer;
+        let allData = [];
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            dataManager = new DataManager();
+            chartRenderer = new ChartRenderer();
+            
+            loadData();
+            setupEventListeners();
+        });
+
+        // 데이터 로드
+        async function loadData() {
+            try {
+                allData = await dataManager.loadCSV('data/sample_data.csv');
+                updateDashboard();
+            } catch (error) {
+                console.error('데이터 로드 실패:', error);
+                alert('데이터를 로드할 수 없습니다.');
+            }
+        }
+
+        // 이벤트 리스너 설정
+        function setupEventListeners() {
+            document.getElementById('applyFilters').addEventListener('click', applyFilters);
+            document.getElementById('resetFilters').addEventListener('click', resetFilters);
+        }
+
+        // 필터 적용
+        function applyFilters() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const category = document.getElementById('categoryFilter').value;
+            const region = document.getElementById('regionFilter').value;
+
+            const filteredData = dataManager.filterData(allData, {
+                startDate,
+                endDate,
+                category,
+                region
+            });
+
+            updateDashboard(filteredData);
+        }
+
+        // 필터 초기화
+        function resetFilters() {
+            document.getElementById('startDate').value = '2024-01-01';
+            document.getElementById('endDate').value = '2024-01-10';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('regionFilter').value = '';
+            updateDashboard();
+        }
+
+        // 대시보드 업데이트
+        function updateDashboard(data = allData) {
+            updateKPIs(data);
+            updateCharts(data);
+            updateDataTable(data);
+        }
+
+        // KPI 업데이트
+        function updateKPIs(data) {
+            const totalRevenue = data.reduce((sum, row) => sum + row.매출, 0);
+            const totalVisitors = data.reduce((sum, row) => sum + row.방문자수, 0);
+            const avgConversion = data.reduce((sum, row) => sum + row.전환율, 0) / data.length;
+            const avgOrderValue = totalRevenue / totalVisitors;
+
+            document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString() + '원';
+            document.getElementById('totalVisitors').textContent = totalVisitors.toLocaleString() + '명';
+            document.getElementById('avgConversion').textContent = avgConversion.toFixed(1) + '%';
+            document.getElementById('avgOrderValue').textContent = Math.round(avgOrderValue).toLocaleString() + '원';
+        }
+
+        // 차트 업데이트
+        function updateCharts(data) {
+            chartRenderer.renderRevenueTrend(data, 'revenueTrendChart');
+            chartRenderer.renderCategoryChart(data, 'categoryChart');
+            chartRenderer.renderRegionChart(data, 'regionChart');
+            chartRenderer.renderConversionChart(data, 'conversionChart');
+        }
+
+        // 데이터 테이블 업데이트
+        function updateDataTable(data) {
+            const tbody = document.getElementById('dataTableBody');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.날짜}</td>
+                    <td>${row.카테고리}</td>
+                    <td>${row.지역}</td>
+                    <td>${row.매출.toLocaleString()}원</td>
+                    <td>${row.방문자수.toLocaleString()}명</td>
+                    <td>${row.전환율}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 데이터 내보내기
+        function exportData() {
+            dataManager.exportToCSV(allData, 'dashboard_data.csv');
+        }
+
+        // 새로고침
+        function refreshDashboard() {
+            loadData();
+        }
+    </script>
+</body>
+</html>

@@ -134,6 +134,34 @@
     transition: box-shadow 0.2s ease;
 }
 
+/* 탭 전환 애니메이션 */
+.dashboard-content {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.dashboard-content.hidden {
+    display: none;
+}
+
+/* 탭 스타일링 */
+.tabs .tab {
+    transition: all 0.2s ease;
+}
+
+.tabs .tab:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tabs .tab.tab-active {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+/* iframe 스타일링 */
+iframe {
+    min-height: calc(100vh - 120px);
+}
+
 /* 프린트 스타일 */
 @media print {
     .navbar,

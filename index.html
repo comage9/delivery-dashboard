@@ -14,7 +14,7 @@
     <!-- 헤더 -->
     <header class="navbar bg-primary text-primary-content shadow-lg">
         <div class="navbar-start">
-            <h1 class="text-xl font-bold">출고 현황 대시보드</h1>
+            <h1 class="text-xl font-bold">통합 대시보드</h1>
         </div>
         <div class="navbar-end">
             <div class="flex items-center gap-4">
@@ -29,8 +29,29 @@
         </div>
     </header>
 
-    <!-- 메인 컨텐츠 -->
-    <main class="container mx-auto p-6">
+    <!-- 탭 네비게이션 -->
+    <nav class="bg-base-200 border-b">
+        <div class="container mx-auto">
+            <div class="tabs tabs-boxed bg-transparent">
+                <a class="tab tab-active" id="delivery-tab" onclick="switchTab('delivery')">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                    </svg>
+                    출고 현황
+                </a>
+                <a class="tab" id="sales-tab" onclick="switchTab('sales')">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    비즈니스 분석
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 출고 현황 대시보드 -->
+    <div id="delivery-dashboard" class="dashboard-content">
+        <main class="container mx-auto p-6">
         <!-- 통계 카드 -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="stat bg-base-200 rounded-lg">
@@ -82,7 +103,13 @@
             </div>
         </div>
 
-    </main>
+        </main>
+    </div>
+
+    <!-- 비즈니스 분석 대시보드 -->
+    <div id="sales-dashboard" class="dashboard-content hidden">
+        <iframe src="sales/index.html" class="w-full h-screen border-0"></iframe>
+    </div>
 
     <!-- 로딩 모달 -->
     <dialog id="loading-modal" class="modal">
@@ -135,6 +162,25 @@
                 alert('대시보드 초기화에 실패했습니다: ' + error.message);
             }
         });
+
+        // 탭 전환 함수
+        function switchTab(tabName) {
+            // 모든 탭과 대시보드 숨기기
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('tab-active'));
+            document.querySelectorAll('.dashboard-content').forEach(content => content.classList.add('hidden'));
+
+            // 선택된 탭과 대시보드 보이기
+            document.getElementById(tabName + '-tab').classList.add('tab-active');
+            document.getElementById(tabName + '-dashboard').classList.remove('hidden');
+
+            // 상태 배지 업데이트
+            const statusBadge = document.getElementById('status-badge');
+            if (tabName === 'delivery') {
+                statusBadge.style.display = 'block';
+            } else {
+                statusBadge.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>
