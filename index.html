@@ -100,6 +100,44 @@
                     <p>• 오늘 데이터의 각 포인트에는 값이 라벨로 표시되며, 예측값은 * 표시됩니다</p>
                     <p>• 마지막 업데이트: <span id="last-update">-</span></p>
                 </div>
+                
+                <!-- 예측 정보 패널 -->
+                <div class="collapse collapse-arrow bg-base-300 mt-4" id="prediction-info">
+                    <input type="checkbox" />
+                    <div class="collapse-title text-sm font-medium">
+                        예측 모델 정보 보기
+                    </div>
+                    <div class="collapse-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <h4 class="font-semibold mb-2">적용된 예측 모델:</h4>
+                                <ul class="space-y-1">
+                                    <li>• 요일별 패턴 분석 (25%)</li>
+                                    <li>• 시간대별 성장 패턴 (20%)</li>
+                                    <li>• 최근 트렌드 분석 (25%)</li>
+                                    <li>• 계절성 패턴 (15%)</li>
+                                    <li>• 지수 평활법 (15%)</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold mb-2">예측 정확도 개선 요소:</h4>
+                                <ul class="space-y-1">
+                                    <li>• 같은 요일 과거 데이터 활용</li>
+                                    <li>• 시간대별 고유 증가 패턴</li>
+                                    <li>• 최근 3시간 트렌드 반영</li>
+                                    <li>• 주말/평일 구분 적용</li>
+                                    <li>• 다중 모델 가중 평균</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mt-3 p-3 bg-info/10 rounded">
+                            <p class="text-xs text-info-content">
+                                <strong>참고:</strong> 예측값은 과거 데이터 패턴을 기반으로 계산되며, 
+                                실제 결과와 차이가 있을 수 있습니다. 더 많은 과거 데이터가 축적될수록 예측 정확도가 향상됩니다.
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

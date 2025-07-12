@@ -608,7 +608,7 @@ class Dashboard {
         }
     }
 
-    // 예측값 추가 함수
+    // 고급 예측값 추가 함수
     addPredictiveValues(values) {
         const result = [...values];
         const isPredicted = new Array(values.length).fill(false);
@@ -624,38 +624,350 @@ class Dashboard {
 
         if (lastValidIndex === -1) return { values: result, isPredicted };
 
-        // 현재 시간을 기준으로 예측값 계산
-        const currentHour = new Date().getHours();
-        
         // 마지막 유효값부터 23:00까지 예측값 생성
         if (lastValidIndex < 23) {
             const lastValue = values[lastValidIndex];
             
-            // 간단한 선형 증가 모델 (시간당 평균 증가량 기반)
-            let hourlyIncrease = 0;
-            if (lastValidIndex > 0) {
-                // 이전 시간들의 평균 증가량 계산
-                let totalIncrease = 0;
-                let increaseCount = 0;
-                for (let i = 1; i <= lastValidIndex; i++) {
-                    if (values[i] !== null && values[i-1] !== null && values[i] > values[i-1]) {
-                        totalIncrease += (values[i] - values[i-1]);
-                        increaseCount++;
-                    }
-                }
-                if (increaseCount > 0) {
-                    hourlyIncrease = totalIncrease / increaseCount;
-                }
-            }
+            // 1. 요일별 패턴 분석
+            const dayOfWeekPattern = this.analyzeDayOfWeekPattern();
+            
+            // 2. 시간대별 성장 패턴 분석
+            const hourlyGrowthPattern = this.analyzeHourlyGrowthPattern();
+            
+            // 3. 최근 트렌드 분석
+            const recentTrend = this.analyzeRecentTrend(values, lastValidIndex);
+            
+            // 4. 계절성 패턴 분석 (주간 패턴)
+            const seasonalPattern = this.analyzeSeasonalPattern();
 
             // 예측값 생성 (23:00까지)
+            console.log('=== 예측 모델 분석 시작 ===');
+            console.log('마지막 유효 시간:', lastValidIndex + ':00');
+            console.log('마지막 유효값:', lastValue);
+            console.log('요일별 패턴:', dayOfWeekPattern);
+            console.log('시간별 성장 패턴:', hourlyGrowthPattern);
+            console.log('최근 트렌드:', recentTrend);
+            console.log('계절성 패턴:', seasonalPattern);
+            
             for (let i = lastValidIndex + 1; i <= 23; i++) {
-                const predictedValue = Math.round(lastValue + (hourlyIncrease * (i - lastValidIndex)));
-                result[i] = Math.max(predictedValue, lastValue); // 감소하지 않도록
+                // 다중 모델 예측값 계산
+                const predictions = this.calculateMultiModelPredictions({
+                    lastValue,
+                    lastValidIndex,
+                    targetHour: i,
+                    dayOfWeekPattern,
+                    hourlyGrowthPattern,
+                    recentTrend,
+                    seasonalPattern,
+                    currentValues: values
+                });
+
+                // 가중 평균으로 최종 예측값 결정
+                const finalPrediction = this.weightedPrediction(predictions);
+                
+                // 예측값 합리성 검증 및 조정
+                const validatedPrediction = this.validatePrediction(finalPrediction, lastValue, i, lastValidIndex);
+                
+                console.log(`${i}:00 예측값 - 모델별:`, predictions, '가중평균:', Math.round(finalPrediction), '검증후:', Math.round(validatedPrediction));
+                
+                result[i] = Math.round(validatedPrediction);
                 isPredicted[i] = true;
             }
+            
+            console.log('=== 예측 모델 분석 완료 ===');
         }
 
         return { values: result, isPredicted };
+    }
+
+    // 요일별 패턴 분석
+    analyzeDayOfWeekPattern() {
+        const today = new Date();
+        const todayDayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ...
+        
+        // 같은 요일의 과거 데이터 수집
+        const sameDayData = [];
+        this.data.forEach(row => {
+            if (row.date) {
+                const rowDate = new Date(row.date);
+                if (rowDate.getDay() === todayDayOfWeek) {
+                    sameDayData.push(row);
+                }
+            }
+        });
+
+        // 같은 요일의 시간별 평균 성장률 계산
+        const hourlyRatios = {};
+        for (let h = 1; h < 24; h++) {
+            const hourKey = h.toString().padStart(2, '0');
+            const prevHourKey = (h-1).toString().padStart(2, '0');
+            const ratios = [];
+
+            sameDayData.forEach(row => {
+                const currentHour = parseInt(row[`hour_${hourKey}`]) || 0;
+                const prevHour = parseInt(row[`hour_${prevHourKey}`]) || 0;
+                
+                if (prevHour > 0 && currentHour > prevHour) {
+                    ratios.push(currentHour / prevHour);
+                }
+            });
+
+            if (ratios.length > 0) {
+                hourlyRatios[h] = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+            } else {
+                hourlyRatios[h] = 1.1; // 기본 성장률 10%
+            }
+        }
+
+        return hourlyRatios;
+    }
+
+    // 시간대별 성장 패턴 분석
+    analyzeHourlyGrowthPattern() {
+        const hourlyGrowth = {};
+        
+        // 모든 데이터에서 시간대별 성장 패턴 추출
+        this.data.forEach(row => {
+            for (let h = 1; h < 24; h++) {
+                const hourKey = h.toString().padStart(2, '0');
+                const prevHourKey = (h-1).toString().padStart(2, '0');
+                
+                const currentHour = parseInt(row[`hour_${hourKey}`]) || 0;
+                const prevHour = parseInt(row[`hour_${prevHourKey}`]) || 0;
+                
+                if (prevHour > 0 && currentHour > prevHour) {
+                    if (!hourlyGrowth[h]) hourlyGrowth[h] = [];
+                    hourlyGrowth[h].push(currentHour - prevHour);
+                }
+            }
+        });
+
+        // 각 시간대별 평균 증가량 계산
+        const avgHourlyGrowth = {};
+        for (let h = 1; h < 24; h++) {
+            if (hourlyGrowth[h] && hourlyGrowth[h].length > 0) {
+                avgHourlyGrowth[h] = hourlyGrowth[h].reduce((a, b) => a + b, 0) / hourlyGrowth[h].length;
+            } else {
+                avgHourlyGrowth[h] = 0;
+            }
+        }
+
+        return avgHourlyGrowth;
+    }
+
+    // 최근 트렌드 분석
+    analyzeRecentTrend(values, lastValidIndex) {
+        if (lastValidIndex < 3) return 0;
+        
+        // 최근 3시간의 증가율 분석
+        const recentGrowthRates = [];
+        for (let i = Math.max(1, lastValidIndex - 2); i <= lastValidIndex; i++) {
+            if (values[i] > 0 && values[i-1] > 0) {
+                recentGrowthRates.push(values[i] / values[i-1]);
+            }
+        }
+
+        if (recentGrowthRates.length > 0) {
+            return recentGrowthRates.reduce((a, b) => a + b, 0) / recentGrowthRates.length;
+        }
+        
+        return 1.05; // 기본 성장률 5%
+    }
+
+    // 계절성 패턴 분석 (주간 패턴)
+    analyzeSeasonalPattern() {
+        const today = new Date();
+        const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+        const currentHour = today.getHours();
+        
+        // 주말/평일별 시간대 가중치
+        const weekendFactors = {
+            morning: 0.8,   // 09-12시
+            afternoon: 1.2, // 13-17시
+            evening: 1.1,   // 18-21시
+            night: 0.9      // 22-23시
+        };
+        
+        const weekdayFactors = {
+            morning: 1.3,   // 09-12시
+            afternoon: 1.1, // 13-17시
+            evening: 0.9,   // 18-21시
+            night: 0.7      // 22-23시
+        };
+        
+        const factors = isWeekend ? weekendFactors : weekdayFactors;
+        
+        if (currentHour >= 9 && currentHour <= 12) return factors.morning;
+        if (currentHour >= 13 && currentHour <= 17) return factors.afternoon;
+        if (currentHour >= 18 && currentHour <= 21) return factors.evening;
+        if (currentHour >= 22) return factors.night;
+        
+        return 1.0; // 기본값
+    }
+
+    // 다중 모델 예측값 계산
+    calculateMultiModelPredictions(params) {
+        const { lastValue, lastValidIndex, targetHour, dayOfWeekPattern, 
+                hourlyGrowthPattern, recentTrend, seasonalPattern, currentValues } = params;
+        
+        const predictions = {};
+        
+        // 1. 요일별 패턴 기반 예측
+        if (dayOfWeekPattern[targetHour]) {
+            predictions.dayOfWeek = lastValue * Math.pow(dayOfWeekPattern[targetHour], targetHour - lastValidIndex);
+        }
+        
+        // 2. 시간별 성장 패턴 기반 예측
+        let growthSum = 0;
+        for (let h = lastValidIndex + 1; h <= targetHour; h++) {
+            growthSum += hourlyGrowthPattern[h] || 0;
+        }
+        predictions.hourlyGrowth = lastValue + growthSum;
+        
+        // 3. 최근 트렌드 기반 예측
+        predictions.recentTrend = lastValue * Math.pow(recentTrend, targetHour - lastValidIndex);
+        
+        // 4. 계절성 패턴 기반 예측
+        const baseGrowth = (targetHour - lastValidIndex) * 20; // 시간당 기본 20개 증가
+        predictions.seasonal = lastValue + (baseGrowth * seasonalPattern);
+        
+        // 5. 지수 평활법 예측
+        predictions.exponentialSmoothing = this.exponentialSmoothingPrediction(currentValues, lastValidIndex, targetHour);
+
+        return predictions;
+    }
+
+    // 지수 평활법 예측
+    exponentialSmoothingPrediction(values, lastValidIndex, targetHour) {
+        if (lastValidIndex < 2) return values[lastValidIndex] * 1.1;
+        
+        const alpha = 0.3; // 평활 상수
+        let smoothedValue = values[1];
+        
+        for (let i = 2; i <= lastValidIndex; i++) {
+            if (values[i] > 0) {
+                smoothedValue = alpha * values[i] + (1 - alpha) * smoothedValue;
+            }
+        }
+        
+        // 트렌드 계산
+        const trend = lastValidIndex > 2 ? 
+            (smoothedValue - values[lastValidIndex - 2]) / 2 : 
+            smoothedValue * 0.1;
+        
+        return smoothedValue + (trend * (targetHour - lastValidIndex));
+    }
+
+    // 가중 평균으로 최종 예측값 결정
+    weightedPrediction(predictions) {
+        const weights = {
+            dayOfWeek: 0.25,           // 요일 패턴
+            hourlyGrowth: 0.20,        // 시간별 성장
+            recentTrend: 0.25,         // 최근 트렌드
+            seasonal: 0.15,            // 계절성
+            exponentialSmoothing: 0.15  // 지수 평활법
+        };
+        
+        let weightedSum = 0;
+        let totalWeight = 0;
+        
+        Object.keys(predictions).forEach(method => {
+            if (predictions[method] && predictions[method] > 0 && weights[method]) {
+                weightedSum += predictions[method] * weights[method];
+                totalWeight += weights[method];
+            }
+        });
+        
+        return totalWeight > 0 ? weightedSum / totalWeight : 0;
+    }
+
+    // 예측값 합리성 검증 및 조정
+    validatePrediction(prediction, lastValue, targetHour, lastValidIndex) {
+        const hourDiff = targetHour - lastValidIndex;
+        
+        // 1. 최소값 검증: 이전 값보다 작을 수 없음
+        if (prediction < lastValue) {
+            prediction = lastValue;
+        }
+        
+        // 2. 최대 증가율 제한: 시간당 최대 50% 증가
+        const maxIncrease = lastValue * Math.pow(1.5, hourDiff);
+        if (prediction > maxIncrease) {
+            prediction = maxIncrease;
+        }
+        
+        // 3. 점진적 증가 패턴 유지: 급격한 변화 방지
+        const expectedGradualIncrease = lastValue + (hourDiff * lastValue * 0.1); // 시간당 10% 기본 증가
+        if (prediction > expectedGradualIncrease * 2) {
+            prediction = expectedGradualIncrease * 1.5; // 최대 50% 추가 증가만 허용
+        }
+        
+        // 4. 시간대별 최대값 제한
+        const hourlyMaxLimits = this.getHourlyMaxLimits();
+        if (hourlyMaxLimits[targetHour] && prediction > hourlyMaxLimits[targetHour]) {
+            prediction = hourlyMaxLimits[targetHour];
+        }
+        
+        // 5. 현실적 범위 내 조정
+        const dailyTarget = this.estimateDailyTarget();
+        const progressRatio = targetHour / 23;
+        const expectedAtHour = dailyTarget * progressRatio;
+        
+        // 예상 진행률 대비 너무 높은 값 조정
+        if (prediction > expectedAtHour * 1.3) {
+            prediction = expectedAtHour * 1.2;
+        }
+        
+        return Math.max(prediction, lastValue);
+    }
+
+    // 시간대별 최대값 제한 설정
+    getHourlyMaxLimits() {
+        // 과거 데이터를 기반으로 각 시간대별 최대값 계산
+        const hourlyMaxes = {};
+        
+        this.data.forEach(row => {
+            for (let h = 0; h < 24; h++) {
+                const hourKey = `hour_${h.toString().padStart(2, '0')}`;
+                const value = parseInt(row[hourKey]) || 0;
+                
+                if (!hourlyMaxes[h] || value > hourlyMaxes[h]) {
+                    hourlyMaxes[h] = value;
+                }
+            }
+        });
+        
+        // 최대값에 20% 여유를 두어 상한선 설정
+        Object.keys(hourlyMaxes).forEach(hour => {
+            hourlyMaxes[hour] = hourlyMaxes[hour] * 1.2;
+        });
+        
+        return hourlyMaxes;
+    }
+
+    // 일일 목표값 추정
+    estimateDailyTarget() {
+        // 최근 7일간의 평균 일일 최종값을 기반으로 목표값 설정
+        const recentFinalValues = [];
+        
+        this.data.slice(-7).forEach(row => {
+            const finalValue = row.total || parseInt(row.hour_23) || 0;
+            if (finalValue > 0) {
+                recentFinalValues.push(finalValue);
+            }
+        });
+        
+        if (recentFinalValues.length > 0) {
+            const avgDaily = recentFinalValues.reduce((a, b) => a + b, 0) / recentFinalValues.length;
+            
+            // 요일별 조정 (주말은 80%, 평일은 110%)
+            const today = new Date();
+            const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+            const dayFactor = isWeekend ? 0.8 : 1.1;
+            
+            return avgDaily * dayFactor;
+        }
+        
+        return 1000; // 기본값
     }
 }
