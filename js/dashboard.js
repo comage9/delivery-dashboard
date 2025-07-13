@@ -216,32 +216,68 @@ class Dashboard {
         const latestRow = this.data[this.data.length - 1];
         console.log('Latest row:', latestRow);
         
-        // 오늘 총 출고량 (합계값 또는 23시 값)
+        // 오늘 총 출고량 (현재 시간까지의 실제 누적값)
         let todayTotal = 0;
         if (latestRow) {
-            // 합계값이 있으면 사용, 없으면 23시 값 사용
-            todayTotal = latestRow.total || parseInt(latestRow.hour_23) || 0;
+            // 현재 시간대까지의 가장 높은 실제값 찾기
+            const currentHour = new Date().getHours();
+            for (let h = 23; h >= 0; h--) {
+                const hourKey = `hour_${h.toString().padStart(2, '0')}`;
+                const value = parseInt(latestRow[hourKey]) || 0;
+                if (value > 0) {
+                    todayTotal = value;
+                    break;
+                }
+            }
+            // 실제값이 없으면 합계값 사용
+            if (todayTotal === 0) {
+                todayTotal = latestRow.total || 0;
+            }
         }
         
-        // 어제 마지막 출고량
+        // 어제 마지막 출고량 (실제 데이터 중 마지막 값)
         let yesterdayLast = 0;
         if (this.data.length > 1) {
             const yesterdayRow = this.data[this.data.length - 2];
             if (yesterdayRow) {
-                yesterdayLast = yesterdayRow.total || parseInt(yesterdayRow.hour_23) || 0;
+                // 23시부터 역순으로 검색해서 실제 데이터가 있는 마지막 시간의 값 찾기
+                for (let h = 23; h >= 0; h--) {
+                    const hourKey = `hour_${h.toString().padStart(2, '0')}`;
+                    const value = parseInt(yesterdayRow[hourKey]) || 0;
+                    if (value > 0) {
+                        yesterdayLast = value;
+                        break;
+                    }
+                }
+                // 실제값이 없으면 합계값 사용
+                if (yesterdayLast === 0) {
+                    yesterdayLast = yesterdayRow.total || 0;
+                }
             }
         }
 
-        // 오늘을 제외한 이전 3일 데이터로 최대/평균 시간당 출고량 계산
-        const excludeTodayData = this.data.slice(-4, -1); // 오늘 제외한 이전 3일
-        let dailyMaxValues = []; // 각 일별 최대 출고량
+        // 이전 3일 데이터로 평균 출고량 계산
+        const recentDays = this.data.slice(-4, -1); // 오늘 제외한 최근 3일
+        let dailyTotals = []; // 각 일별 총 출고량
         let hourlyIncrements = []; // 시간당 증가량
         
-        excludeTodayData.forEach(row => {
-            // 각 일별 최대 출고량 (23시 또는 합계값)
-            const dailyMax = row.total || parseInt(row.hour_23) || 0;
+        recentDays.forEach(row => {
+            // 각 일별 최종 출고량 (실제 데이터 중 최대값)
+            let dailyMax = 0;
+            for (let h = 23; h >= 0; h--) {
+                const hourKey = `hour_${h.toString().padStart(2, '0')}`;
+                const value = parseInt(row[hourKey]) || 0;
+                if (value > 0) {
+                    dailyMax = value;
+                    break;
+                }
+            }
+            // 실제값이 없으면 합계값 사용
+            if (dailyMax === 0) {
+                dailyMax = row.total || 0;
+            }
             if (dailyMax > 0) {
-                dailyMaxValues.push(dailyMax);
+                dailyTotals.push(dailyMax);
             }
             
             // 시간당 증가량 계산
@@ -257,20 +293,20 @@ class Dashboard {
             }
         });
         
-        // 최대 시간당 출고량: 오늘 제외한 이전 3일간 최고 출고량의 평균
-        const maxHourly = dailyMaxValues.length > 0 ? 
-            Math.round(dailyMaxValues.reduce((a, b) => a + b, 0) / dailyMaxValues.length) : 0;
+        // 3일 평균 출고수량
+        const avgDaily = dailyTotals.length > 0 ? 
+            Math.round(dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length) : 0;
         
-        // 평균 시간당 출고량: 오늘 제외한 이전 3일간 시간당 증가량의 평균
+        // 평균 시간당 출고량
         const avgHourly = hourlyIncrements.length > 0 ? 
             Math.round(hourlyIncrements.reduce((a, b) => a + b, 0) / hourlyIncrements.length) : 0;
 
-        console.log('Stats calculated:', { todayTotal, yesterdayLast, maxHourly, avgHourly });
+        console.log('Stats calculated:', { todayTotal, yesterdayLast, avgDaily, avgHourly });
 
         // UI 업데이트
         document.getElementById('today-total').textContent = todayTotal.toLocaleString();
         document.getElementById('yesterday-last').textContent = yesterdayLast.toLocaleString();
-        document.getElementById('max-hourly').textContent = maxHourly.toLocaleString();
+        document.getElementById('max-hourly').textContent = avgDaily.toLocaleString();
         document.getElementById('avg-hourly').textContent = avgHourly.toLocaleString();
     }
 
@@ -608,7 +644,7 @@ class Dashboard {
         }
     }
 
-    // 고급 예측값 추가 함수
+    // 간단하고 확실한 누적 예측 함수
     addPredictiveValues(values) {
         const result = [...values];
         const isPredicted = new Array(values.length).fill(false);
@@ -628,56 +664,103 @@ class Dashboard {
         if (lastValidIndex < 23) {
             const lastValue = values[lastValidIndex];
             
-            // 1. 요일별 패턴 분석
-            const dayOfWeekPattern = this.analyzeDayOfWeekPattern();
-            
-            // 2. 시간대별 성장 패턴 분석
-            const hourlyGrowthPattern = this.analyzeHourlyGrowthPattern();
-            
-            // 3. 최근 트렌드 분석
-            const recentTrend = this.analyzeRecentTrend(values, lastValidIndex);
-            
-            // 4. 계절성 패턴 분석 (주간 패턴)
-            const seasonalPattern = this.analyzeSeasonalPattern();
-
-            // 예측값 생성 (23:00까지)
-            console.log('=== 예측 모델 분석 시작 ===');
+            console.log('=== 간단한 누적 예측 시작 ===');
             console.log('마지막 유효 시간:', lastValidIndex + ':00');
             console.log('마지막 유효값:', lastValue);
-            console.log('요일별 패턴:', dayOfWeekPattern);
-            console.log('시간별 성장 패턴:', hourlyGrowthPattern);
-            console.log('최근 트렌드:', recentTrend);
-            console.log('계절성 패턴:', seasonalPattern);
             
+            // 과거 동일 요일 데이터에서 현재 시간 기준 예상 최종값 계산
+            const expectedFinalValue = this.calculateSimpleExpectedFinal(lastValidIndex, lastValue);
+            console.log('예상 최종값:', expectedFinalValue);
+            
+            // 남은 시간에 따른 점진적 증가
+            const remainingHours = 23 - lastValidIndex;
+            const totalIncrease = Math.max(0, expectedFinalValue - lastValue);
+            
+            let previousValue = lastValue;
             for (let i = lastValidIndex + 1; i <= 23; i++) {
-                // 다중 모델 예측값 계산
-                const predictions = this.calculateMultiModelPredictions({
-                    lastValue,
-                    lastValidIndex,
-                    targetHour: i,
-                    dayOfWeekPattern,
-                    hourlyGrowthPattern,
-                    recentTrend,
-                    seasonalPattern,
-                    currentValues: values
-                });
-
-                // 가중 평균으로 최종 예측값 결정
-                const finalPrediction = this.weightedPrediction(predictions);
+                // 시간대별 가중치 적용한 점진적 증가
+                const hourWeight = this.getHourWeight(i);
+                const remainingFromThis = 23 - i + 1;
                 
-                // 예측값 합리성 검증 및 조정
-                const validatedPrediction = this.validatePrediction(finalPrediction, lastValue, i, lastValidIndex);
+                // 기본 증가량 계산
+                const baseIncrease = totalIncrease * hourWeight / remainingFromThis;
                 
-                console.log(`${i}:00 예측값 - 모델별:`, predictions, '가중평균:', Math.round(finalPrediction), '검증후:', Math.round(validatedPrediction));
+                // 최소 증가량 보장 (이전값보다 항상 증가)
+                const minIncrease = previousValue * 0.01; // 최소 1% 증가
+                const actualIncrease = Math.max(baseIncrease, minIncrease);
                 
-                result[i] = Math.round(validatedPrediction);
+                const predictedValue = previousValue + actualIncrease;
+                
+                console.log(`${i}:00 예측값: ${Math.round(predictedValue)} (이전: ${previousValue}, 증가: ${Math.round(actualIncrease)})`);
+                
+                result[i] = Math.round(predictedValue);
                 isPredicted[i] = true;
+                previousValue = result[i];
             }
             
-            console.log('=== 예측 모델 분석 완료 ===');
+            console.log('=== 간단한 누적 예측 완료 ===');
         }
 
         return { values: result, isPredicted };
+    }
+    
+    // 간단한 예상 최종값 계산
+    calculateSimpleExpectedFinal(currentHour, currentValue) {
+        const today = new Date();
+        const todayDayOfWeek = today.getDay();
+        
+        // 같은 요일 과거 데이터에서 현재 시간 기준 진행률 찾기
+        const progressRatios = [];
+        
+        this.data.forEach(row => {
+            if (row.date) {
+                const rowDate = new Date(row.date);
+                if (rowDate.getDay() === todayDayOfWeek) {
+                    // 해당 요일의 최종값 찾기
+                    let finalValue = 0;
+                    for (let h = 23; h >= 0; h--) {
+                        const hourKey = `hour_${h.toString().padStart(2, '0')}`;
+                        const value = parseInt(row[hourKey]) || 0;
+                        if (value > 0) {
+                            finalValue = value;
+                            break;
+                        }
+                    }
+                    
+                    // 현재 시간대의 값
+                    const currentHourKey = `hour_${currentHour.toString().padStart(2, '0')}`;
+                    const currentHourValue = parseInt(row[currentHourKey]) || 0;
+                    
+                    if (finalValue > 0 && currentHourValue > 0) {
+                        progressRatios.push(finalValue / currentHourValue);
+                    }
+                }
+            }
+        });
+        
+        // 보수적 예측: 중간값 사용하고 현재값의 2배를 넘지 않음
+        let expectedRatio = 1.5; // 기본값
+        if (progressRatios.length > 0) {
+            progressRatios.sort((a, b) => a - b);
+            const medianIndex = Math.floor(progressRatios.length / 2);
+            const medianRatio = progressRatios.length % 2 === 0 
+                ? (progressRatios[medianIndex - 1] + progressRatios[medianIndex]) / 2
+                : progressRatios[medianIndex];
+            expectedRatio = Math.min(medianRatio, 2.0); // 최대 2배로 제한
+        }
+        
+        return Math.round(currentValue * expectedRatio);
+    }
+    
+    // 시간대별 가중치
+    getHourWeight(hour) {
+        const weights = {
+            9: 1.2, 10: 1.3, 11: 1.4, 12: 1.2,
+            13: 1.1, 14: 1.2, 15: 1.3, 16: 1.4,
+            17: 1.2, 18: 1.0, 19: 0.8, 20: 0.6,
+            21: 0.4, 22: 0.3, 23: 0.2
+        };
+        return weights[hour] || 0.5;
     }
 
     // 요일별 패턴 분석
