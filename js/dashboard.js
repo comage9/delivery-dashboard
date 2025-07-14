@@ -393,6 +393,27 @@ class Dashboard {
                         pointBorderColor: 'rgba(34, 197, 94, 1)',
                         pointRadius: 3,
                         pointHoverRadius: 5
+                    }, {
+                        label: '시간별 증감량',
+                        type: 'bar',
+                        data: [],
+                        backgroundColor: function(ctx) {
+                            const dataset = ctx.chart.data.datasets[0]; // 오늘 데이터셋 참조
+                            const isPredicted = dataset.isPredicted && dataset.isPredicted[ctx.dataIndex];
+                            return isPredicted ? 'rgba(249, 115, 22, 0.7)' : 'rgba(59, 130, 246, 0.7)';
+                        },
+                        borderColor: function(ctx) {
+                            const dataset = ctx.chart.data.datasets[0]; // 오늘 데이터셋 참조
+                            const isPredicted = dataset.isPredicted && dataset.isPredicted[ctx.dataIndex];
+                            return isPredicted ? 'rgba(249, 115, 22, 1)' : 'rgba(59, 130, 246, 1)';
+                        },
+                        borderWidth: 1,
+                        yAxisID: 'y', // 왼쪽 Y축(누적 출고량) 사용
+                        order: 2, // 선 그래프보다 뒤에 렌더링
+                        barThickness: 'flex',
+                        maxBarThickness: 20, // 막대 두께 줄임
+                        categoryPercentage: 0.6, // 카테고리 폭 조정
+                        barPercentage: 0.8 // 막대 폭 조정
                     }]
                 },
                 options: {
@@ -422,32 +443,63 @@ class Dashboard {
                         },
                         datalabels: {
                             display: function(context) {
-                                // 오늘 데이터(첫 번째 데이터셋)에서만 라벨 표시하고 null 값 제외
-                                return context.datasetIndex === 0 && 
-                                       context.parsed && 
-                                       context.parsed.y !== null && 
-                                       context.parsed.y !== undefined &&
-                                       context.parsed.y > 0;
+                                // 오늘 데이터(0번) 또는 증감량(3번) 데이터셋에서만 라벨 표시
+                                const showForLineChart = context.datasetIndex === 0 && 
+                                                       context.parsed && 
+                                                       context.parsed.y !== null && 
+                                                       context.parsed.y !== undefined &&
+                                                       context.parsed.y > 0;
+                                const showForBarChart = context.datasetIndex === 3 && 
+                                                      context.parsed && 
+                                                      context.parsed.y !== null && 
+                                                      context.parsed.y !== undefined &&
+                                                      context.parsed.y > 0;
+                                return showForLineChart || showForBarChart;
                             },
                             backgroundColor: function(context) {
-                                const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
-                                return isPredicted ? 'rgba(249, 115, 22, 0.8)' : 'rgba(59, 130, 246, 0.8)';
+                                if (context.datasetIndex === 3) {
+                                    // 막대그래프: 예측 여부를 오늘 데이터셋에서 확인
+                                    const todayDataset = context.chart.data.datasets[0];
+                                    const isPredicted = todayDataset.isPredicted && todayDataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? 'rgba(249, 115, 22, 0.9)' : 'rgba(59, 130, 246, 0.9)';
+                                } else {
+                                    // 선그래프: 기존 로직
+                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? 'rgba(249, 115, 22, 0.8)' : 'rgba(59, 130, 246, 0.8)';
+                                }
                             },
                             borderColor: function(context) {
-                                const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
-                                return isPredicted ? 'rgba(249, 115, 22, 1)' : 'rgba(59, 130, 246, 1)';
+                                if (context.datasetIndex === 3) {
+                                    // 막대그래프: 예측 여부를 오늘 데이터셋에서 확인
+                                    const todayDataset = context.chart.data.datasets[0];
+                                    const isPredicted = todayDataset.isPredicted && todayDataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? 'rgba(249, 115, 22, 1)' : 'rgba(59, 130, 246, 1)';
+                                } else {
+                                    // 선그래프: 기존 로직
+                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? 'rgba(249, 115, 22, 1)' : 'rgba(59, 130, 246, 1)';
+                                }
                             },
                             borderRadius: 4,
                             borderWidth: 1,
                             color: 'white',
                             font: {
                                 weight: 'bold',
-                                size: 10
+                                size: function(context) {
+                                    return context.datasetIndex === 3 ? 9 : 10; // 막대그래프는 조금 더 작게
+                                }
                             },
                             formatter: function(value, context) {
                                 if (value === null || value === undefined) return '';
-                                const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
-                                return isPredicted ? value.toLocaleString() + '*' : value.toLocaleString();
+                                
+                                if (context.datasetIndex === 3) {
+                                    // 막대그래프: +기호와 함께 표시
+                                    return '+' + value.toLocaleString();
+                                } else {
+                                    // 선그래프: 기존 로직
+                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? value.toLocaleString() + '*' : value.toLocaleString();
+                                }
                             },
                             padding: {
                                 top: 2,
@@ -455,9 +507,15 @@ class Dashboard {
                                 left: 4,
                                 right: 4
                             },
-                            anchor: 'end',
-                            align: 'top',
-                            offset: 4
+                            anchor: function(context) {
+                                return context.datasetIndex === 3 ? 'end' : 'end'; // 막대그래프는 막대 끝에
+                            },
+                            align: function(context) {
+                                return context.datasetIndex === 3 ? 'top' : 'top'; // 막대그래프는 위쪽에
+                            },
+                            offset: function(context) {
+                                return context.datasetIndex === 3 ? 2 : 4; // 막대그래프는 더 가깝게
+                            }
                         }
                     },
                     scales: {
@@ -582,10 +640,16 @@ class Dashboard {
         console.log('Non-zero values count:', nonZeroCount);
 
         try {
+            // 시간별 증감량 계산
+            const todayIncrements = this.calculateHourlyIncrements(todayValuesWithPrediction, todayPredictionResult.isPredicted);
+            
+            console.log(`막대그래프 데이터:`, todayIncrements.filter(v => v !== null).slice(0, 10));
+            
             this.chart.data.labels = hours.map(h => h + ':00');
             this.chart.data.datasets[0].data = todayValuesWithPrediction;
             this.chart.data.datasets[1].data = yesterdayValues;
             this.chart.data.datasets[2].data = dayBeforeYesterdayValues;
+            this.chart.data.datasets[3].data = todayIncrements; // 막대그래프 데이터
             
             // 차트 데이터셋 레이블 업데이트 및 예측값 정보 추가
             if (todayData.date) {
@@ -1552,6 +1616,31 @@ class Dashboard {
         
         // 가장 최근(마지막) 데이터가 오늘 데이터
         return this.data[this.data.length - 1];
+    }
+    
+    // 시간별 증감량 계산 함수
+    calculateHourlyIncrements(values, isPredicted) {
+        const increments = [];
+        
+        for (let i = 0; i < values.length; i++) {
+            if (i === 0) {
+                // 0시는 증감량 표시하지 않음 (전날 최종값)
+                increments.push(null);
+                continue;
+            }
+            
+            const currentValue = values[i];
+            const previousValue = values[i - 1];
+            
+            if (currentValue !== null && previousValue !== null && currentValue > 0 && previousValue > 0) {
+                const increment = currentValue - previousValue;
+                increments.push(increment > 0 ? increment : null);
+            } else {
+                increments.push(null);
+            }
+        }
+        
+        return increments;
     }
 
     // 요일별 패턴 분석
