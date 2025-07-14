@@ -86,6 +86,11 @@ class Dashboard {
             this.updateDashboard();
             this.updateStatus('연결됨');
             
+            // 🔍 데이터 분석 및 예측 검증 시스템 실행
+            setTimeout(() => {
+                this.performDataAnalysis();
+            }, 1000);
+            
         } catch (error) {
             console.error('데이터 로드 실패:', error);
             this.showError('데이터 로드에 실패했습니다: ' + error.message);
@@ -644,7 +649,7 @@ class Dashboard {
         }
     }
 
-    // 간단하고 확실한 누적 예측 함수
+    // 현실적 데이터 기반 예측 함수
     addPredictiveValues(values) {
         const result = [...values];
         const isPredicted = new Array(values.length).fill(false);
@@ -664,103 +669,889 @@ class Dashboard {
         if (lastValidIndex < 23) {
             const lastValue = values[lastValidIndex];
             
-            console.log('=== 간단한 누적 예측 시작 ===');
+            console.log('=== 현실적 데이터 기반 예측 시작 ===');
             console.log('마지막 유효 시간:', lastValidIndex + ':00');
             console.log('마지막 유효값:', lastValue);
+            console.log('전체 과거 데이터 개수:', this.data.length);
             
-            // 과거 동일 요일 데이터에서 현재 시간 기준 예상 최종값 계산
-            const expectedFinalValue = this.calculateSimpleExpectedFinal(lastValidIndex, lastValue);
-            console.log('예상 최종값:', expectedFinalValue);
-            
-            // 남은 시간에 따른 점진적 증가
-            const remainingHours = 23 - lastValidIndex;
-            const totalIncrease = Math.max(0, expectedFinalValue - lastValue);
+            // 과거 데이터 샘플 확인
+            if (this.data.length > 0) {
+                console.log('과거 데이터 샘플 (첫 번째 행):', this.data[0]);
+            }
             
             let previousValue = lastValue;
             for (let i = lastValidIndex + 1; i <= 23; i++) {
-                // 시간대별 가중치 적용한 점진적 증가
-                const hourWeight = this.getHourWeight(i);
-                const remainingFromThis = 23 - i + 1;
+                // 🚀 새로운 단순화된 예측값 계산
+                const predictedValue = this.calculateSimplifiedPrediction({
+                    targetHour: i,
+                    previousValue: previousValue
+                });
                 
-                // 기본 증가량 계산
-                const baseIncrease = totalIncrease * hourWeight / remainingFromThis;
-                
-                // 최소 증가량 보장 (이전값보다 항상 증가)
-                const minIncrease = previousValue * 0.01; // 최소 1% 증가
-                const actualIncrease = Math.max(baseIncrease, minIncrease);
-                
-                const predictedValue = previousValue + actualIncrease;
-                
-                console.log(`${i}:00 예측값: ${Math.round(predictedValue)} (이전: ${previousValue}, 증가: ${Math.round(actualIncrease)})`);
+                console.log(`${i}:00 예측값: ${Math.round(predictedValue)} (이전: ${previousValue})`);
                 
                 result[i] = Math.round(predictedValue);
                 isPredicted[i] = true;
                 previousValue = result[i];
             }
             
-            console.log('=== 간단한 누적 예측 완료 ===');
+            console.log('=== 현실적 데이터 기반 예측 완료 ===');
+            
+            // 예측 결과 요약 출력
+            console.log('\n📊 예측 결과 요약:');
+            const predictionSummary = Array.from({length: 23 - lastValidIndex}, (_, i) => {
+                const hour = lastValidIndex + i + 1;
+                return {
+                    시간: `${hour}:00`,
+                    예측값: result[hour] ? result[hour].toLocaleString() : '-',
+                    상태: isPredicted[hour] ? '예측' : '실제'
+                };
+            });
+            console.table(predictionSummary);
+            
+            // 예측값 검증 테스트 실행
+            setTimeout(() => {
+                this.testPredictionValues();
+            }, 1000);
         }
 
         return { values: result, isPredicted };
     }
     
-    // 간단한 예상 최종값 계산
-    calculateSimpleExpectedFinal(currentHour, currentValue) {
-        const today = new Date();
-        const todayDayOfWeek = today.getDay();
+    // 현실적 예측값 계산 - 각 시간대별 절대값 기준 유사 사례 분석
+    calculateRealisticPrediction(params) {
+        const { targetHour, previousPredictedValue } = params;
         
-        // 같은 요일 과거 데이터에서 현재 시간 기준 진행률 찾기
-        const progressRatios = [];
+        console.log(`\n=== ${targetHour}시 예측 시작 ===`);
+        
+        // 1. 해당 시간대의 과거 유사 값들 찾기
+        const similarCases = this.findSimilarValueCasesForHour(targetHour, previousPredictedValue);
+        console.log(`${targetHour}시 ${previousPredictedValue}와 유사한 과거 사례:`, similarCases.length, '건');
+        
+        if (similarCases.length === 0) {
+            // 유사 사례가 없으면 최소 증가만 적용
+            const minIncrease = previousPredictedValue * 0.005; // 0.5% 증가
+            return previousPredictedValue + minIncrease;
+        }
+        
+        // 2. 유사 사례들의 다음 시간 값들 분석
+        const nextHourValues = this.extractNextHourValues(similarCases, targetHour);
+        console.log(`${targetHour}시 유사 사례들의 다음 시간 값들:`, nextHourValues);
+        
+        // 3. 기본 예측값 계산 (중간값 사용)
+        const basePrediction = this.calculateBasePrediction(nextHourValues);
+        console.log(`${targetHour}시 기본 예측값:`, basePrediction);
+        
+        // 4. 요일별 보정 계수 적용
+        const dayOfWeekAdjustment = this.getDayOfWeekAdjustment(targetHour);
+        console.log(`요일별 보정 (${this.getDayName()}):`, dayOfWeekAdjustment);
+        
+        // 5. 월중 시기별 보정 계수 적용
+        const monthPeriodAdjustment = this.getMonthPeriodAdjustment();
+        console.log(`월중 시기별 보정:`, monthPeriodAdjustment);
+        
+        // 6. 시간대별 증감 추이 보정
+        const timeBasedAdjustment = this.getTimeBasedAdjustment(targetHour);
+        console.log(`시간대별 증감 추이 보정:`, timeBasedAdjustment);
+        
+        // 7. 최근 일주일 출고 추이 보정
+        const weeklyTrendAdjustment = this.getWeeklyTrendAdjustment();
+        console.log(`최근 일주일 추이 보정:`, weeklyTrendAdjustment);
+        
+        // 8. 최종 예측값 계산 (보정 계수들을 현실적 범위로 제한)
+        const limitedDayAdj = Math.max(0.95, Math.min(dayOfWeekAdjustment, 1.10)); // ±10% 제한
+        const limitedMonthAdj = Math.max(0.98, Math.min(monthPeriodAdjustment, 1.05)); // ±5% 제한
+        const limitedTimeAdj = Math.max(0.98, Math.min(timeBasedAdjustment, 1.05)); // ±5% 제한
+        const limitedWeeklyAdj = Math.max(0.90, Math.min(weeklyTrendAdjustment, 1.10)); // ±10% 제한
+        
+        console.log(`제한된 보정 계수 - 요일: ${limitedDayAdj.toFixed(3)}, 월: ${limitedMonthAdj.toFixed(3)}, 시간: ${limitedTimeAdj.toFixed(3)}, 주간: ${limitedWeeklyAdj.toFixed(3)}`);
+        
+        let finalPrediction = basePrediction * limitedDayAdj * limitedMonthAdj * limitedTimeAdj * limitedWeeklyAdj;
+        
+        // 9. 현실적 상한선 적용 (최근 일주일 평균 기준)
+        const recentWeeklyAverage = this.getRecentWeeklyAverage();
+        const realisticMaxLimit = recentWeeklyAverage * 1.5; // 주간 평균의 1.5배 이하
+        
+        console.log(`현실성 검증 - 주간평균: ${Math.round(recentWeeklyAverage)}, 상한선: ${Math.round(realisticMaxLimit)}`);
+        
+        if (finalPrediction > realisticMaxLimit) {
+            console.log(`예측값 ${Math.round(finalPrediction)}이 상한선 ${Math.round(realisticMaxLimit)}을 초과하여 조정됨`);
+            finalPrediction = realisticMaxLimit;
+        }
+        
+        // 10. 누적 원칙 보장 - 이전값보다 반드시 증가
+        const minValue = previousPredictedValue * 1.002; // 최소 0.2% 증가
+        finalPrediction = Math.max(finalPrediction, minValue);
+        
+        console.log(`최종 예측: ${Math.round(finalPrediction)} (기본: ${basePrediction}, 상한선적용후)`);
+        
+        return finalPrediction;
+    }
+    
+    // 특정 시간대에서 유사한 값을 가진 과거 사례 찾기 (매우 정밀한 범위)
+    findSimilarValueCasesForHour(targetHour, referenceValue) {
+        const similarCases = [];
+        const tolerance = referenceValue * 0.0005; // ±0.05% 범위로 매우 정밀하게
+        
+        console.log(`${targetHour}시 ${referenceValue}에서 ±${Math.round(tolerance)} 범위로 검색`);
         
         this.data.forEach(row => {
-            if (row.date) {
-                const rowDate = new Date(row.date);
-                if (rowDate.getDay() === todayDayOfWeek) {
-                    // 해당 요일의 최종값 찾기
-                    let finalValue = 0;
-                    for (let h = 23; h >= 0; h--) {
-                        const hourKey = `hour_${h.toString().padStart(2, '0')}`;
-                        const value = parseInt(row[hourKey]) || 0;
-                        if (value > 0) {
-                            finalValue = value;
-                            break;
-                        }
+            if (!row.date) return;
+            
+            const hourKey = `hour_${targetHour.toString().padStart(2, '0')}`;
+            const valueAtHour = parseInt(row[hourKey]) || 0;
+            
+            // 매우 정밀한 범위 내의 데이터만 선택
+            if (valueAtHour > 0 && 
+                Math.abs(valueAtHour - referenceValue) <= tolerance) {
+                
+                // 해당 날짜의 모든 시간대 데이터 포함
+                const caseData = { 
+                    date: row.date, 
+                    targetHourValue: valueAtHour,
+                    similarity: Math.abs(valueAtHour - referenceValue)
+                };
+                
+                for (let h = 0; h <= 23; h++) {
+                    const hKey = `hour_${h.toString().padStart(2, '0')}`;
+                    caseData[`hour_${h}`] = parseInt(row[hKey]) || 0;
+                }
+                similarCases.push(caseData);
+            }
+        });
+        
+        // 매우 정밀한 검색으로 사례가 없으면 범위를 점진적으로 확대
+        if (similarCases.length === 0) {
+            const expandedTolerance = referenceValue * 0.005; // ±0.5%로 확대
+            console.log(`정밀 검색 실패, ±${Math.round(expandedTolerance)} 범위로 재검색`);
+            
+            this.data.forEach(row => {
+                if (!row.date) return;
+                
+                const hourKey = `hour_${targetHour.toString().padStart(2, '0')}`;
+                const valueAtHour = parseInt(row[hourKey]) || 0;
+                
+                if (valueAtHour > 0 && 
+                    Math.abs(valueAtHour - referenceValue) <= expandedTolerance) {
+                    
+                    const caseData = { 
+                        date: row.date, 
+                        targetHourValue: valueAtHour,
+                        similarity: Math.abs(valueAtHour - referenceValue)
+                    };
+                    
+                    for (let h = 0; h <= 23; h++) {
+                        const hKey = `hour_${h.toString().padStart(2, '0')}`;
+                        caseData[`hour_${h}`] = parseInt(row[hKey]) || 0;
                     }
+                    similarCases.push(caseData);
+                }
+            });
+        }
+        
+        // 여전히 사례가 없으면 최대 5% 범위까지
+        if (similarCases.length === 0) {
+            const maxTolerance = referenceValue * 0.05; // ±5%
+            console.log(`확대 검색 실패, ±${Math.round(maxTolerance)} 범위로 최종 검색`);
+            
+            this.data.forEach(row => {
+                if (!row.date) return;
+                
+                const hourKey = `hour_${targetHour.toString().padStart(2, '0')}`;
+                const valueAtHour = parseInt(row[hourKey]) || 0;
+                
+                if (valueAtHour > 0 && 
+                    Math.abs(valueAtHour - referenceValue) <= maxTolerance) {
                     
-                    // 현재 시간대의 값
-                    const currentHourKey = `hour_${currentHour.toString().padStart(2, '0')}`;
-                    const currentHourValue = parseInt(row[currentHourKey]) || 0;
+                    const caseData = { 
+                        date: row.date, 
+                        targetHourValue: valueAtHour,
+                        similarity: Math.abs(valueAtHour - referenceValue)
+                    };
                     
-                    if (finalValue > 0 && currentHourValue > 0) {
-                        progressRatios.push(finalValue / currentHourValue);
+                    for (let h = 0; h <= 23; h++) {
+                        const hKey = `hour_${h.toString().padStart(2, '0')}`;
+                        caseData[`hour_${h}`] = parseInt(row[hKey]) || 0;
+                    }
+                    similarCases.push(caseData);
+                }
+            });
+        }
+        
+        // 유사도 순으로 정렬 (더 비슷한 값 우선)
+        similarCases.sort((a, b) => a.similarity - b.similarity);
+        
+        console.log(`최종 검색 결과: ${similarCases.length}건 (평균 차이: ${similarCases.length > 0 ? Math.round(similarCases.reduce((sum, c) => sum + c.similarity, 0) / similarCases.length) : 0})`);
+        
+        return similarCases;
+    }
+    
+    // 유사 사례들의 다음 시간 값들 추출
+    extractNextHourValues(similarCases, currentHour) {
+        const nextHour = currentHour + 1;
+        if (nextHour > 23) return [];
+        
+        const nextHourValues = [];
+        
+        similarCases.forEach(caseData => {
+            const nextValue = caseData[`hour_${nextHour}`];
+            if (nextValue > 0) {
+                nextHourValues.push({
+                    value: nextValue,
+                    date: caseData.date,
+                    similarity: caseData.similarity
+                });
+            }
+        });
+        
+        return nextHourValues;
+    }
+    
+    // 기본 예측값 계산 (보수적 접근 - 25번째 백분위수 사용)
+    calculateBasePrediction(nextHourValues) {
+        if (nextHourValues.length === 0) return 0;
+        
+        // 값들만 추출하여 정렬
+        const values = nextHourValues.map(item => item.value).sort((a, b) => a - b);
+        
+        // 25번째 백분위수 계산 (더 보수적인 예측)
+        const q1Index = Math.floor(values.length * 0.25);
+        const q1 = values[q1Index];
+        
+        // 중간값도 계산
+        const medianIndex = Math.floor(values.length / 2);
+        const median = values.length % 2 === 0 
+            ? (values[medianIndex - 1] + values[medianIndex]) / 2
+            : values[medianIndex];
+        
+        // 25번째 백분위수와 중간값 중 더 보수적인 값 선택
+        const conservativeValue = Math.min(q1, median);
+        
+        console.log(`예측값 계산: Q1=${q1}, 중간값=${median}, 선택값=${conservativeValue}`);
+        
+        return conservativeValue;
+    }
+    
+    // 시간대별 증감 추이 보정
+    getTimeBasedAdjustment(targetHour) {
+        // 과거 데이터에서 해당 시간대의 일반적인 증감 패턴 분석
+        const hourlyGrowthRates = [];
+        
+        this.data.forEach(row => {
+            if (!row.date) return;
+            
+            const currentHourKey = `hour_${targetHour.toString().padStart(2, '0')}`;
+            const prevHourKey = `hour_${(targetHour-1).toString().padStart(2, '0')}`;
+            
+            const currentValue = parseInt(row[currentHourKey]) || 0;
+            const prevValue = parseInt(row[prevHourKey]) || 0;
+            
+            if (currentValue > 0 && prevValue > 0) {
+                const growthRate = currentValue / prevValue;
+                // 극단적인 값들 필터링 (0.5배 ~ 2배 범위만)
+                if (growthRate >= 0.5 && growthRate <= 2.0) {
+                    hourlyGrowthRates.push(growthRate);
+                }
+            }
+        });
+        
+        if (hourlyGrowthRates.length === 0) {
+            return 1.0; // 기본값
+        }
+        
+        // 중간값 사용
+        hourlyGrowthRates.sort((a, b) => a - b);
+        const medianIndex = Math.floor(hourlyGrowthRates.length / 2);
+        const medianGrowthRate = hourlyGrowthRates.length % 2 === 0 
+            ? (hourlyGrowthRates[medianIndex - 1] + hourlyGrowthRates[medianIndex]) / 2
+            : hourlyGrowthRates[medianIndex];
+        
+        // 극단적 보정 방지 (0.9 ~ 1.15 범위)
+        return Math.max(0.9, Math.min(medianGrowthRate, 1.15));
+    }
+    
+    // 요일별 보정 계수
+    getDayOfWeekAdjustment(targetHour) {
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0: 일요일, 1: 월요일, ...
+        
+        // 과거 데이터에서 해당 요일의 시간대별 평균 활동 수준 분석
+        const sameDayData = this.data.filter(row => {
+            if (!row.date) return false;
+            const rowDate = new Date(row.date);
+            return rowDate.getDay() === dayOfWeek;
+        });
+        
+        if (sameDayData.length === 0) {
+            return 1.0; // 기본값
+        }
+        
+        // 해당 시간대의 평균 활동도 계산
+        const hourlyActivities = [];
+        sameDayData.forEach(row => {
+            const currentValue = parseInt(row[`hour_${targetHour.toString().padStart(2, '0')}`]) || 0;
+            const prevValue = parseInt(row[`hour_${(targetHour-1).toString().padStart(2, '0')}`]) || 0;
+            
+            if (currentValue > 0 && prevValue > 0) {
+                hourlyActivities.push(currentValue / prevValue);
+            }
+        });
+        
+        if (hourlyActivities.length === 0) {
+            return 1.0;
+        }
+        
+        const avgActivity = hourlyActivities.reduce((a, b) => a + b, 0) / hourlyActivities.length;
+        
+        // 1.0을 기준으로 정규화하되 극단적 값 방지
+        return Math.max(0.8, Math.min(avgActivity, 1.3));
+    }
+    
+    // 월중 시기별 보정 계수 (월초/중순/말)
+    getMonthPeriodAdjustment() {
+        const today = new Date();
+        const dayOfMonth = today.getDate();
+        
+        // 월중 시기 구분
+        let period = 'mid';
+        if (dayOfMonth <= 10) {
+            period = 'early'; // 월초
+        } else if (dayOfMonth >= 21) {
+            period = 'late';  // 월말
+        }
+        
+        // 과거 데이터에서 해당 시기의 평균 활동 수준 분석
+        const periodData = this.data.filter(row => {
+            if (!row.date) return false;
+            const rowDate = new Date(row.date);
+            const rowDay = rowDate.getDate();
+            
+            if (period === 'early') return rowDay <= 10;
+            if (period === 'late') return rowDay >= 21;
+            return rowDay > 10 && rowDay < 21;
+        });
+        
+        if (periodData.length === 0) {
+            return 1.0;
+        }
+        
+        // 해당 시기의 평균 성장률 계산
+        const growthRates = [];
+        periodData.forEach(row => {
+            let maxValue = 0;
+            for (let h = 0; h <= 23; h++) {
+                const value = parseInt(row[`hour_${h.toString().padStart(2, '0')}`]) || 0;
+                if (value > maxValue) maxValue = value;
+            }
+            if (maxValue > 0) {
+                growthRates.push(maxValue);
+            }
+        });
+        
+        if (growthRates.length === 0) {
+            return 1.0;
+        }
+        
+        const avgGrowth = growthRates.reduce((a, b) => a + b, 0) / growthRates.length;
+        const overallAvg = this.calculateOverallAverage();
+        
+        if (overallAvg === 0) return 1.0;
+        
+        const adjustment = avgGrowth / overallAvg;
+        
+        // 극단적 값 방지 (0.7 ~ 1.4 범위)
+        return Math.max(0.7, Math.min(adjustment, 1.4));
+    }
+    
+    // 전체 데이터의 평균값 계산
+    calculateOverallAverage() {
+        const allMaxValues = [];
+        
+        this.data.forEach(row => {
+            let maxValue = 0;
+            for (let h = 0; h <= 23; h++) {
+                const value = parseInt(row[`hour_${h.toString().padStart(2, '0')}`]) || 0;
+                if (value > maxValue) maxValue = value;
+            }
+            if (maxValue > 0) {
+                allMaxValues.push(maxValue);
+            }
+        });
+        
+        if (allMaxValues.length === 0) return 0;
+        
+        return allMaxValues.reduce((a, b) => a + b, 0) / allMaxValues.length;
+    }
+    
+    // 최근 일주일 평균 출고량 계산
+    getRecentWeeklyAverage() {
+        if (this.data.length < 7) {
+            return 500; // 기본값
+        }
+        
+        const recentWeekData = this.data.slice(-7);
+        const dailyTotals = [];
+        
+        recentWeekData.forEach(row => {
+            let maxValue = 0;
+            for (let h = 0; h <= 23; h++) {
+                const value = parseInt(row[`hour_${h.toString().padStart(2, '0')}`]) || 0;
+                if (value > maxValue) maxValue = value;
+            }
+            if (maxValue > 0) {
+                dailyTotals.push(maxValue);
+            }
+        });
+        
+        if (dailyTotals.length === 0) return 500;
+        
+        return dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length;
+    }
+    
+    // 최근 일주일 출고 추이 보정
+    getWeeklyTrendAdjustment() {
+        if (this.data.length < 7) {
+            return 1.0; // 데이터가 부족하면 보정 없음
+        }
+        
+        // 최근 7일 데이터 가져오기
+        const recentWeekData = this.data.slice(-7);
+        const dailyTotals = [];
+        
+        recentWeekData.forEach(row => {
+            // 각 일의 최종 출고량 계산
+            let maxValue = 0;
+            for (let h = 0; h <= 23; h++) {
+                const value = parseInt(row[`hour_${h.toString().padStart(2, '0')}`]) || 0;
+                if (value > maxValue) maxValue = value;
+            }
+            if (maxValue > 0) {
+                dailyTotals.push(maxValue);
+            }
+        });
+        
+        if (dailyTotals.length < 3) {
+            return 1.0;
+        }
+        
+        // 최근 3일과 이전 3일 비교
+        const recentHalf = dailyTotals.slice(-3); // 최근 3일
+        const previousHalf = dailyTotals.slice(-6, -3); // 이전 3일
+        
+        if (previousHalf.length < 3) {
+            return 1.0;
+        }
+        
+        const recentAvg = recentHalf.reduce((a, b) => a + b, 0) / recentHalf.length;
+        const previousAvg = previousHalf.reduce((a, b) => a + b, 0) / previousHalf.length;
+        
+        // 추이 계산
+        const trendRatio = recentAvg / previousAvg;
+        
+        console.log('일주일 추이 분석:', {
+            최근3일평균: Math.round(recentAvg),
+            이전3일평균: Math.round(previousAvg),
+            추이비율: trendRatio.toFixed(3)
+        });
+        
+        // 급격한 변화 방지 (0.85 ~ 1.15 범위)
+        return Math.max(0.85, Math.min(trendRatio, 1.15));
+    }
+    
+    // 요일 이름 반환
+    getDayName() {
+        const days = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+        return days[new Date().getDay()];
+    }
+    
+    // 🔍 데이터 분석 및 예측 검증 시스템
+    performDataAnalysis() {
+        console.log('\n🔍 === 데이터 분석 및 예측 검증 시스템 시작 ===');
+        
+        // 1. 전체 데이터 패턴 분석
+        this.analyzeOverallDataPatterns();
+        
+        // 2. 시간별 증가 패턴 분석
+        this.analyzeHourlyGrowthPatterns();
+        
+        // 3. 예측 정확도 역산 테스트
+        this.validatePredictionAccuracy();
+        
+        // 4. 새로운 단순화된 예측 방법 테스트
+        this.testSimplifiedPrediction();
+    }
+    
+    // 전체 데이터 패턴 분석
+    analyzeOverallDataPatterns() {
+        console.log('\n📊 === 전체 데이터 패턴 분석 ===');
+        
+        if (this.data.length < 3) {
+            console.log('❌ 분석에 충분한 데이터가 없습니다');
+            return;
+        }
+        
+        // 최근 7일 일별 최종값 분석
+        const recentDays = this.data.slice(-7);
+        const dailyTotals = [];
+        const hourlyAverages = Array(24).fill(0);
+        const hourlyGrowthRates = Array(23).fill(0);
+        
+        recentDays.forEach(row => {
+            let maxValue = 0;
+            const dayValues = [];
+            
+            for (let h = 0; h <= 23; h++) {
+                const value = parseInt(row[`hour_${h.toString().padStart(2, '0')}`]) || 0;
+                dayValues.push(value);
+                if (value > maxValue) maxValue = value;
+            }
+            
+            if (maxValue > 0) {
+                dailyTotals.push(maxValue);
+                
+                // 시간별 평균 계산
+                dayValues.forEach((value, hour) => {
+                    hourlyAverages[hour] += value;
+                });
+                
+                // 시간별 증가율 계산
+                for (let h = 0; h < 23; h++) {
+                    if (dayValues[h] > 0) {
+                        const growthRate = (dayValues[h + 1] - dayValues[h]) / dayValues[h];
+                        hourlyGrowthRates[h] += growthRate;
                     }
                 }
             }
         });
         
-        // 보수적 예측: 중간값 사용하고 현재값의 2배를 넘지 않음
-        let expectedRatio = 1.5; // 기본값
-        if (progressRatios.length > 0) {
-            progressRatios.sort((a, b) => a - b);
-            const medianIndex = Math.floor(progressRatios.length / 2);
-            const medianRatio = progressRatios.length % 2 === 0 
-                ? (progressRatios[medianIndex - 1] + progressRatios[medianIndex]) / 2
-                : progressRatios[medianIndex];
-            expectedRatio = Math.min(medianRatio, 2.0); // 최대 2배로 제한
-        }
+        // 평균 계산
+        const avgDaily = dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length;
+        hourlyAverages.forEach((sum, index) => {
+            hourlyAverages[index] = sum / recentDays.length;
+        });
+        hourlyGrowthRates.forEach((sum, index) => {
+            hourlyGrowthRates[index] = sum / recentDays.length;
+        });
         
-        return Math.round(currentValue * expectedRatio);
+        console.log(`📈 일별 평균 최종값: ${Math.round(avgDaily)}`);
+        console.log(`📊 일별 최종값 범위: ${Math.min(...dailyTotals)} ~ ${Math.max(...dailyTotals)}`);
+        console.log(`⭐ 시간별 평균 증가율 (상위 5개):`, 
+            hourlyGrowthRates
+                .map((rate, hour) => ({ hour, rate }))
+                .sort((a, b) => b.rate - a.rate)
+                .slice(0, 5)
+                .map(item => `${item.hour}시→${item.hour+1}시: +${(item.rate * 100).toFixed(1)}%`)
+        );
+        
+        // 분석 결과 저장
+        this.analysisData = {
+            avgDaily,
+            dailyTotals,
+            hourlyAverages,
+            hourlyGrowthRates
+        };
     }
     
-    // 시간대별 가중치
-    getHourWeight(hour) {
-        const weights = {
-            9: 1.2, 10: 1.3, 11: 1.4, 12: 1.2,
-            13: 1.1, 14: 1.2, 15: 1.3, 16: 1.4,
-            17: 1.2, 18: 1.0, 19: 0.8, 20: 0.6,
-            21: 0.4, 22: 0.3, 23: 0.2
+    // 시간별 증가 패턴 분석
+    analyzeHourlyGrowthPatterns() {
+        console.log('\n⏰ === 시간별 증가 패턴 분석 ===');
+        
+        if (!this.analysisData) return;
+        
+        const currentHour = new Date().getHours();
+        const currentData = this.getCurrentDayData();
+        
+        if (!currentData) {
+            console.log('❌ 오늘 데이터를 찾을 수 없습니다');
+            return;
+        }
+        
+        console.log('📍 현재 상황 분석:');
+        for (let h = 0; h <= currentHour && h <= 23; h++) {
+            const currentValue = parseInt(currentData[`hour_${h.toString().padStart(2, '0')}`]) || 0;
+            const avgValue = this.analysisData.hourlyAverages[h];
+            const difference = currentValue - avgValue;
+            const diffPercent = avgValue > 0 ? (difference / avgValue * 100) : 0;
+            
+            console.log(`${h}시: 현재 ${currentValue}, 평균 ${Math.round(avgValue)}, 차이 ${difference > 0 ? '+' : ''}${Math.round(difference)} (${diffPercent > 0 ? '+' : ''}${diffPercent.toFixed(1)}%)`);
+        }
+    }
+    
+    // 예측 정확도 역산 테스트 
+    validatePredictionAccuracy() {
+        console.log('\n🎯 === 예측 정확도 역산 테스트 ===');
+        
+        if (this.data.length < 3) return;
+        
+        // 어제 데이터로 예측 정확도 테스트
+        const yesterdayData = this.data[this.data.length - 2]; // 어제
+        const testHours = [12, 15, 18, 21]; // 테스트할 시간대
+        
+        console.log('🔬 어제 데이터로 예측 정확도 테스트:');
+        
+        testHours.forEach(hour => {
+            if (hour >= 23) return;
+            
+            const actualCurrent = parseInt(yesterdayData[`hour_${hour.toString().padStart(2, '0')}`]) || 0;
+            const actualNext = parseInt(yesterdayData[`hour_${(hour + 1).toString().padStart(2, '0')}`]) || 0;
+            const actualGrowth = actualNext - actualCurrent;
+            
+            // 현재 알고리즘으로 예측
+            const similarCases = this.findSimilarValueCasesForHour(hour, actualCurrent);
+            if (similarCases.length > 0) {
+                const nextHourValues = this.extractNextHourValues(similarCases, hour);
+                const prediction = this.calculateBasePrediction(nextHourValues);
+                const predictedGrowth = prediction - actualCurrent;
+                
+                const accuracy = actualNext > 0 ? Math.abs(prediction - actualNext) / actualNext * 100 : 100;
+                
+                console.log(`${hour}시→${hour+1}시: 실제 ${actualCurrent}→${actualNext} (+${actualGrowth}), 예측 ${Math.round(prediction)} (+${Math.round(predictedGrowth)}), 오차 ${accuracy.toFixed(1)}%`);
+            }
+        });
+    }
+    
+    // 단순화된 예측 방법 테스트
+    testSimplifiedPrediction() {
+        console.log('\n🚀 === 단순화된 예측 방법 테스트 ===');
+        
+        if (!this.analysisData) return;
+        
+        const currentData = this.getCurrentDayData();
+        if (!currentData) return;
+        
+        const currentHour = new Date().getHours();
+        console.log(`\n📍 현재 ${currentHour}시 기준 단순 예측:`);
+        
+        // 방법 1: 평균 증가율 적용
+        const currentValue = parseInt(currentData[`hour_${currentHour.toString().padStart(2, '0')}`]) || 0;
+        if (currentValue > 0 && currentHour < 23) {
+            const avgGrowthRate = this.analysisData.hourlyGrowthRates[currentHour];
+            const method1Prediction = currentValue * (1 + avgGrowthRate);
+            
+            // 방법 2: 평균 증가량 적용
+            const avgCurrentValue = this.analysisData.hourlyAverages[currentHour];
+            const avgNextValue = this.analysisData.hourlyAverages[currentHour + 1];
+            const avgGrowthAmount = avgNextValue - avgCurrentValue;
+            const method2Prediction = currentValue + avgGrowthAmount;
+            
+            // 방법 3: 현재값 대비 평균값 비율 적용
+            const ratio = avgCurrentValue > 0 ? currentValue / avgCurrentValue : 1;
+            const method3Prediction = avgNextValue * ratio;
+            
+            console.log(`방법1 (증가율): ${currentValue} × (1 + ${(avgGrowthRate * 100).toFixed(1)}%) = ${Math.round(method1Prediction)}`);
+            console.log(`방법2 (증가량): ${currentValue} + ${Math.round(avgGrowthAmount)} = ${Math.round(method2Prediction)}`);
+            console.log(`방법3 (비율적용): ${Math.round(avgNextValue)} × ${ratio.toFixed(2)} = ${Math.round(method3Prediction)}`);
+            
+            // 가장 보수적인 값 선택
+            const conservativePrediction = Math.min(method1Prediction, method2Prediction, method3Prediction);
+            console.log(`🎯 권장 예측값 (가장 보수적): ${Math.round(conservativePrediction)}`);
+            
+            return Math.round(conservativePrediction);
+        }
+        
+        return null;
+    }
+    
+    // 📊 최근 추세 기반 현실적 예측 시스템
+    calculateSimplifiedPrediction({ targetHour, previousValue }) {
+        console.log(`\n🎯 추세 기반 예측 시작: ${targetHour}시, 이전값: ${previousValue}`);
+        
+        // 1. 오늘의 현재까지 진행률 분석
+        const todayProgress = this.analyzeTodayProgress(targetHour, previousValue);
+        console.log(`📈 오늘 진행률 분석:`, todayProgress);
+        
+        // 2. 최근 3-5일 같은 시간대 실제 증가량 분석
+        const recentGrowthPattern = this.analyzeRecentGrowthPattern(targetHour);
+        console.log(`📊 최근 증가 패턴:`, recentGrowthPattern);
+        
+        // 3. 오늘의 추이와 과거 패턴 비교
+        const trendComparison = this.compareTrendWithHistory(todayProgress, recentGrowthPattern);
+        console.log(`🔍 추이 비교:`, trendComparison);
+        
+        // 4. 추세 기반 예측 계산
+        return this.calculateTrendBasedPrediction({
+            targetHour,
+            previousValue,
+            todayProgress,
+            recentPattern: recentGrowthPattern,
+            trendFactor: trendComparison
+        });
+    }
+    
+    // 오늘의 현재까지 진행률 분석
+    analyzeTodayProgress(currentHour, currentValue) {
+        const currentData = this.getCurrentDayData();
+        if (!currentData || !this.analysisData) {
+            return { progressRatio: 1.0, velocityTrend: 1.0 };
+        }
+        
+        // 같은 시간대 평균값 대비 현재 진행률
+        const avgAtCurrentHour = this.analysisData.hourlyAverages[currentHour - 1] || currentValue;
+        const progressRatio = avgAtCurrentHour > 0 ? currentValue / avgAtCurrentHour : 1.0;
+        
+        // 최근 3시간 속도 변화 분석
+        const recentVelocity = this.calculateRecentVelocity(currentData, currentHour);
+        
+        return {
+            progressRatio: Math.max(0.5, Math.min(2.0, progressRatio)), // 0.5배~2배 범위
+            velocityTrend: Math.max(0.7, Math.min(1.5, recentVelocity)), // 0.7배~1.5배 범위
+            currentValue
         };
-        return weights[hour] || 0.5;
+    }
+    
+    // 최근 3시간 속도 변화 계산
+    calculateRecentVelocity(currentData, currentHour) {
+        if (currentHour < 3) return 1.0;
+        
+        const recentHours = Math.min(3, currentHour);
+        let totalGrowth = 0;
+        let growthCount = 0;
+        
+        for (let i = 1; i <= recentHours; i++) {
+            const prevHour = currentHour - i;
+            const currHour = currentHour - i + 1;
+            
+            const prevValue = parseInt(currentData[`hour_${prevHour.toString().padStart(2, '0')}`]) || 0;
+            const currValue = parseInt(currentData[`hour_${currHour.toString().padStart(2, '0')}`]) || 0;
+            
+            if (prevValue > 0 && currValue > prevValue) {
+                totalGrowth += (currValue - prevValue) / prevValue;
+                growthCount++;
+            }
+        }
+        
+        return growthCount > 0 ? (totalGrowth / growthCount + 1) : 1.0;
+    }
+    
+    // 최근 3-5일 같은 시간대 증가 패턴 분석
+    analyzeRecentGrowthPattern(targetHour) {
+        if (!this.data || this.data.length < 3) {
+            return { avgGrowth: 20, growthRange: [10, 40], pattern: 'insufficient_data' };
+        }
+        
+        const recentDays = this.data.slice(-5); // 최근 5일
+        const growthValues = [];
+        
+        recentDays.forEach(dayData => {
+            const fromValue = parseInt(dayData[`hour_${(targetHour - 1).toString().padStart(2, '0')}`]) || 0;
+            const toValue = parseInt(dayData[`hour_${targetHour.toString().padStart(2, '0')}`]) || 0;
+            
+            if (fromValue > 0 && toValue > fromValue) {
+                growthValues.push(toValue - fromValue);
+            }
+        });
+        
+        if (growthValues.length === 0) {
+            return { avgGrowth: 20, growthRange: [15, 30], pattern: 'no_growth_data' };
+        }
+        
+        // 통계 계산
+        growthValues.sort((a, b) => a - b);
+        const avgGrowth = growthValues.reduce((a, b) => a + b, 0) / growthValues.length;
+        const medianGrowth = growthValues[Math.floor(growthValues.length / 2)];
+        const minGrowth = growthValues[0];
+        const maxGrowth = growthValues[growthValues.length - 1];
+        
+        return {
+            avgGrowth: Math.round(avgGrowth),
+            medianGrowth: Math.round(medianGrowth),
+            growthRange: [minGrowth, maxGrowth],
+            recentTrend: this.detectRecentTrend(growthValues),
+            sampleSize: growthValues.length
+        };
+    }
+    
+    // 최근 추세 감지
+    detectRecentTrend(growthValues) {
+        if (growthValues.length < 3) return 'stable';
+        
+        const recent = growthValues.slice(-3);
+        const earlier = growthValues.slice(0, -3);
+        
+        if (earlier.length === 0) return 'stable';
+        
+        const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+        const earlierAvg = earlier.reduce((a, b) => a + b, 0) / earlier.length;
+        
+        const changePct = (recentAvg - earlierAvg) / earlierAvg;
+        
+        if (changePct > 0.15) return 'increasing';
+        if (changePct < -0.15) return 'decreasing';
+        return 'stable';
+    }
+    
+    // 추이 비교 분석
+    compareTrendWithHistory(todayProgress, recentPattern) {
+        const { progressRatio, velocityTrend } = todayProgress;
+        const { recentTrend } = recentPattern;
+        
+        let trendMultiplier = 1.0;
+        
+        // 오늘 진행률이 평균보다 높으면 더 적극적 예측
+        if (progressRatio > 1.2) {
+            trendMultiplier *= 1.15;
+        } else if (progressRatio < 0.8) {
+            trendMultiplier *= 0.9;
+        }
+        
+        // 최근 속도 변화 반영
+        trendMultiplier *= velocityTrend;
+        
+        // 최근 추세 패턴 반영
+        switch (recentTrend) {
+            case 'increasing':
+                trendMultiplier *= 1.1;
+                break;
+            case 'decreasing':
+                trendMultiplier *= 0.95;
+                break;
+        }
+        
+        return Math.max(0.8, Math.min(1.3, trendMultiplier));
+    }
+    
+    // 추세 기반 최종 예측 계산
+    calculateTrendBasedPrediction({ targetHour, previousValue, todayProgress, recentPattern, trendFactor }) {
+        const { avgGrowth, medianGrowth, growthRange } = recentPattern;
+        
+        // 기본 예측: 최근 중간값 사용
+        let basePrediction = previousValue + medianGrowth;
+        
+        // 추세 조정 적용
+        const trendAdjustment = (avgGrowth * trendFactor) - avgGrowth;
+        basePrediction += trendAdjustment;
+        
+        // 범위 내 제한
+        const minPrediction = previousValue + Math.max(5, growthRange[0] * 0.8);
+        const maxPrediction = previousValue + Math.min(growthRange[1] * 1.2, avgGrowth * 2);
+        
+        let finalPrediction = Math.max(minPrediction, Math.min(basePrediction, maxPrediction));
+        
+        // 일일 총량 현실성 체크
+        if (this.analysisData) {
+            const currentDailyMax = this.analysisData.avgDaily * 1.1; // 평균의 110%까지만
+            if (finalPrediction > currentDailyMax) {
+                finalPrediction = Math.max(previousValue + 10, currentDailyMax);
+                console.log(`📉 일일 한계 적용: ${Math.round(currentDailyMax)}`);
+            }
+        }
+        
+        console.log(`📊 예측 세부사항:`);
+        console.log(`  - 기본 증가량: ${medianGrowth} (범위: ${growthRange[0]}-${growthRange[1]})`);
+        console.log(`  - 추세 계수: ${trendFactor.toFixed(2)}`);
+        console.log(`  - 조정된 증가량: ${Math.round(finalPrediction - previousValue)}`);
+        console.log(`🎯 최종 예측값: ${Math.round(finalPrediction)}`);
+        
+        return finalPrediction;
+    }
+    
+    // 오늘 데이터 가져오기
+    getCurrentDayData() {
+        if (!this.data || this.data.length === 0) {
+            return null;
+        }
+        
+        // 가장 최근(마지막) 데이터가 오늘 데이터
+        return this.data[this.data.length - 1];
     }
 
     // 요일별 패턴 분석
