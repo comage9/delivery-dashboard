@@ -1,3 +1,6 @@
+// Chart.js 플러그인 전역 등록 (Chart.js v3 방식)
+Chart.register(ChartDataLabels);
+
 // 대시보드 클래스
 class Dashboard {
     constructor(csvUrl, chartId) {
@@ -335,8 +338,8 @@ class Dashboard {
             const ctx = chartElement.getContext('2d');
             console.log('Canvas context created:', ctx !== null);
             
-            // Chart.js 플러그인 등록
-            Chart.register(ChartDataLabels);
+            // Chart.js 플러그인 등록 (v4 호환성)
+            console.log('ChartDataLabels 플러그인 로드 확인:', typeof ChartDataLabels);
             
             this.chart = new Chart(ctx, {
                 type: 'line',
@@ -355,6 +358,9 @@ class Dashboard {
                         pointBorderColor: 'rgba(59, 130, 246, 1)',
                         pointRadius: 3,
                         pointHoverRadius: 5,
+                        datalabels: {
+                            display: true
+                        },
                         segment: {
                             borderColor: function(ctx) {
                                 const dataset = ctx.chart.data.datasets[ctx.datasetIndex];
@@ -379,7 +385,12 @@ class Dashboard {
                         pointBackgroundColor: 'rgba(239, 68, 68, 1)',
                         pointBorderColor: 'rgba(239, 68, 68, 1)',
                         pointRadius: 3,
-                        pointHoverRadius: 5
+                        pointHoverRadius: 5,
+                        datalabels: {
+                            display: function(context) {
+                                return context.dataIndex === 23;
+                            }
+                        }
                     }, {
                         label: '그저께',
                         data: [],
@@ -392,7 +403,12 @@ class Dashboard {
                         pointBackgroundColor: 'rgba(34, 197, 94, 1)',
                         pointBorderColor: 'rgba(34, 197, 94, 1)',
                         pointRadius: 3,
-                        pointHoverRadius: 5
+                        pointHoverRadius: 5,
+                        datalabels: {
+                            display: function(context) {
+                                return context.dataIndex === 23;
+                            }
+                        }
                     }, {
                         label: '시간별 증감량',
                         type: 'bar',
@@ -413,7 +429,13 @@ class Dashboard {
                         barThickness: 'flex',
                         maxBarThickness: 20, // 막대 두께 줄임
                         categoryPercentage: 0.6, // 카테고리 폭 조정
-                        barPercentage: 0.8 // 막대 폭 조정
+                        barPercentage: 0.8, // 막대 폭 조정
+                        datalabels: {
+                            display: true,
+                            formatter: function(value) {
+                                return '+' + value;
+                            }
+                        }
                     }]
                 },
                 options: {
@@ -443,50 +465,84 @@ class Dashboard {
                         },
                         datalabels: {
                             display: function(context) {
-                                // 오늘 데이터(0번) 또는 증감량(3번) 데이터셋에서만 라벨 표시
-                                const showForLineChart = context.datasetIndex === 0 && 
-                                                       context.parsed && 
-                                                       context.parsed.y !== null && 
-                                                       context.parsed.y !== undefined &&
-                                                       context.parsed.y > 0;
-                                const showForBarChart = context.datasetIndex === 3 && 
-                                                      context.parsed && 
-                                                      context.parsed.y !== null && 
-                                                      context.parsed.y !== undefined &&
-                                                      context.parsed.y > 0;
-                                return showForLineChart || showForBarChart;
+                                const value = context.dataset.data[context.dataIndex];
+                                console.log(`라벨 표시 확인 - Dataset: ${context.datasetIndex}, Index: ${context.dataIndex}, Value: ${value}`);
+                                
+                                // 값이 없거나 0 이하면 라벨 숨김
+                                if (value === null || value === undefined || value <= 0) {
+                                    console.log(`라벨 숨김 - 값이 유효하지 않음: ${value}`);
+                                    return false;
+                                }
+                                
+                                // 오늘 데이터 (dataset 0): 모든 시간대 라벨 표시
+                                if (context.datasetIndex === 0) {
+                                    console.log(`오늘 데이터 라벨 표시 - Dataset: ${context.datasetIndex}, Value: ${value}`);
+                                    return true;
+                                }
+                                
+                                // 어제/그저께 (datasets 1,2): 23시만 라벨 표시
+                                if (context.datasetIndex === 1 || context.datasetIndex === 2) {
+                                    const is23Hour = context.dataIndex === 23;
+                                    console.log(`과거 데이터 - Dataset: ${context.datasetIndex}, Index: ${context.dataIndex}, Is23Hour: ${is23Hour}, Value: ${value}`);
+                                    return is23Hour;
+                                }
+                                
+                                // 막대 그래프 (dataset 3): 모든 값 표시
+                                if (context.datasetIndex === 3) {
+                                    console.log(`막대 그래프 라벨 표시 - Dataset: ${context.datasetIndex}, Value: ${value}`);
+                                    return true;
+                                }
+                                
+                                console.log(`라벨 표시 안함 - 조건에 맞지 않음`);
+                                return false;
+                            },
+                            color: function(context) {
+                                // 오늘 데이터: 예측 여부에 따라 색상 변경
+                                if (context.datasetIndex === 0) {
+                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? '#f97316' : '#3b82f6'; // 주황/파랑
+                                }
+                                // 어제 데이터: 빨강
+                                if (context.datasetIndex === 1) {
+                                    return '#ef4444';
+                                }
+                                // 그저께 데이터: 초록
+                                if (context.datasetIndex === 2) {
+                                    return '#22c55e';
+                                }
+                                // 막대그래프: 예측 여부에 따라 색상 변경
+                                if (context.datasetIndex === 3) {
+                                    const todayDataset = context.chart.data.datasets[0];
+                                    const isPredicted = todayDataset.isPredicted && todayDataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? '#f97316' : '#3b82f6';
+                                }
+                                return '#000000';
                             },
                             backgroundColor: function(context) {
-                                if (context.datasetIndex === 3) {
-                                    // 막대그래프: 예측 여부를 오늘 데이터셋에서 확인
-                                    const todayDataset = context.chart.data.datasets[0];
-                                    const isPredicted = todayDataset.isPredicted && todayDataset.isPredicted[context.dataIndex];
-                                    return isPredicted ? 'rgba(249, 115, 22, 0.9)' : 'rgba(59, 130, 246, 0.9)';
-                                } else {
-                                    // 선그래프: 기존 로직
-                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
-                                    return isPredicted ? 'rgba(249, 115, 22, 0.8)' : 'rgba(59, 130, 246, 0.8)';
-                                }
+                                // 라벨 배경색 (가독성을 위해)
+                                return 'rgba(255, 255, 255, 0.8)';
                             },
                             borderColor: function(context) {
+                                // 오늘 데이터: 예측 여부에 따라 테두리 색상
+                                if (context.datasetIndex === 0) {
+                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
+                                    return isPredicted ? '#f97316' : '#3b82f6';
+                                }
+                                if (context.datasetIndex === 1) return '#ef4444';
+                                if (context.datasetIndex === 2) return '#22c55e';
                                 if (context.datasetIndex === 3) {
-                                    // 막대그래프: 예측 여부를 오늘 데이터셋에서 확인
                                     const todayDataset = context.chart.data.datasets[0];
                                     const isPredicted = todayDataset.isPredicted && todayDataset.isPredicted[context.dataIndex];
-                                    return isPredicted ? 'rgba(249, 115, 22, 1)' : 'rgba(59, 130, 246, 1)';
-                                } else {
-                                    // 선그래프: 기존 로직
-                                    const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
-                                    return isPredicted ? 'rgba(249, 115, 22, 1)' : 'rgba(59, 130, 246, 1)';
+                                    return isPredicted ? '#f97316' : '#3b82f6';
                                 }
+                                return '#000000';
                             },
                             borderRadius: 4,
                             borderWidth: 1,
-                            color: 'white',
                             font: {
                                 weight: 'bold',
                                 size: function(context) {
-                                    return context.datasetIndex === 3 ? 9 : 10; // 막대그래프는 조금 더 작게
+                                    return context.datasetIndex === 3 ? 9 : 10;
                                 }
                             },
                             formatter: function(value, context) {
@@ -496,7 +552,7 @@ class Dashboard {
                                     // 막대그래프: +기호와 함께 표시
                                     return '+' + value.toLocaleString();
                                 } else {
-                                    // 선그래프: 기존 로직
+                                    // 선그래프: 예측값에 * 표시
                                     const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
                                     return isPredicted ? value.toLocaleString() + '*' : value.toLocaleString();
                                 }
@@ -507,15 +563,8 @@ class Dashboard {
                                 left: 4,
                                 right: 4
                             },
-                            anchor: function(context) {
-                                return context.datasetIndex === 3 ? 'end' : 'end'; // 막대그래프는 막대 끝에
-                            },
-                            align: function(context) {
-                                return context.datasetIndex === 3 ? 'top' : 'top'; // 막대그래프는 위쪽에
-                            },
-                            offset: function(context) {
-                                return context.datasetIndex === 3 ? 2 : 4; // 막대그래프는 더 가깝게
-                            }
+                            anchor: 'end',
+                            align: 'top'
                         }
                     },
                     scales: {

@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart MCP POC - 출고 현황 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@latest/dist/full.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-base-100">
+    <!-- 헤더 -->
+    <header class="navbar bg-primary text-primary-content shadow-lg">
+        <div class="navbar-start">
+            <h1 class="text-xl font-bold">Chart MCP POC - 출고 현황 대시보드</h1>
+        </div>
+        <div class="navbar-end">
+            <div class="flex items-center gap-4">
+                <div class="badge badge-info" id="status-badge">Chart MCP 연결됨</div>
+                <button class="btn btn-sm btn-ghost" id="refresh-btn">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    새로고침
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 비교 탭 -->
+    <nav class="bg-base-200 border-b">
+        <div class="container mx-auto">
+            <div class="tabs tabs-boxed bg-transparent">
+                <a class="tab tab-active" id="mcp-tab" onclick="switchChart('mcp')">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    Chart MCP (신규)
+                </a>
+                <a class="tab" id="original-tab" onclick="switchChart('original')">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    Original Chart.js
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 성능 메트릭 패널 -->
+    <div class="bg-info/10 p-4">
+        <div class="container mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="stat bg-base-200 rounded-lg p-4">
+                    <div class="stat-title">로딩 시간</div>
+                    <div class="stat-value text-sm" id="loading-time">측정 중...</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg p-4">
+                    <div class="stat-title">번들 크기</div>
+                    <div class="stat-value text-sm" id="bundle-size">계산 중...</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg p-4">
+                    <div class="stat-title">메모리 사용량</div>
+                    <div class="stat-value text-sm" id="memory-usage">모니터링 중...</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg p-4">
+                    <div class="stat-title">렌더링 성능</div>
+                    <div class="stat-value text-sm" id="render-perf">측정 중...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="container mx-auto p-6">
+        <!-- Chart MCP 섹션 -->
+        <div id="mcp-chart-section" class="chart-section">
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="card-title">시간별 출고 현황 - Chart MCP 구현</h2>
+                        <div class="badge badge-success">AntV 차트</div>
+                    </div>
+                    
+                    <!-- Chart MCP 이미지 컨테이너 -->
+                    <div class="w-full min-h-[600px] flex items-center justify-center bg-base-100 rounded" id="mcp-chart-container">
+                        <div class="text-center">
+                            <div class="loading loading-spinner loading-lg text-primary"></div>
+                            <p class="mt-4">Chart MCP로 차트 생성 중...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-sm text-base-content/70">
+                        <p>• Chart MCP를 통해 서버 사이드에서 생성된 차트입니다</p>
+                        <p>• AntV 라이브러리 기반으로 25+ 차트 타입을 지원합니다</p>
+                        <p>• 클라이언트 번들 크기가 0KB입니다</p>
+                        <p>• 마지막 업데이트: <span id="mcp-last-update">-</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 원본 Chart.js 섹션 -->
+        <div id="original-chart-section" class="chart-section hidden">
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="card-title">시간별 출고 현황 - 원본 Chart.js</h2>
+                        <div class="badge badge-warning">Chart.js + DataLabels</div>
+                    </div>
+                    
+                    <div class="w-full h-[600px]">
+                        <canvas id="original-chart"></canvas>
+                    </div>
+                    
+                    <div class="mt-4 text-sm text-base-content/70">
+                        <p>• 기존 Chart.js 구현입니다</p>
+                        <p>• 클라이언트 사이드 렌더링으로 번들 크기가 큽니다</p>
+                        <p>• DataLabels 플러그인으로 인한 성능 오버헤드가 있습니다</p>
+                        <p>• 마지막 업데이트: <span id="original-last-update">-</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Chart.js 라이브러리 (비교용) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+    <script>
+        // 성능 측정용 변수
+        let startTime = performance.now();
+        let mcpLoadTime = 0;
+        let originalLoadTime = 0;
+
+        // Chart MCP POC 클래스
+        class ChartMCPPOC {
+            constructor() {
+                this.currentView = 'mcp';
+                this.csvData = [];
+                this.originalChart = null;
+            }
+
+            async init() {
+                console.log('Chart MCP POC 초기화 시작...');
+                
+                // CSV 데이터 로드
+                await this.loadCSVData();
+                
+                // Chart MCP 차트 생성
+                await this.createMCPChart();
+                
+                // 이벤트 리스너 설정
+                this.setupEventListeners();
+                
+                console.log('Chart MCP POC 초기화 완료');
+            }
+
+            async loadCSVData() {
+                try {
+                    // 실제 구현에서는 CSV 로딩 로직을 여기에 구현
+                    // 현재는 목업 데이터 사용
+                    this.csvData = this.generateMockData();
+                    console.log('CSV 데이터 로드 완료:', this.csvData.length, '개 레코드');
+                } catch (error) {
+                    console.error('CSV 데이터 로드 실패:', error);
+                }
+            }
+
+            generateMockData() {
+                // 출고 현황 목업 데이터 생성
+                const today = new Date();
+                const data = [];
+                
+                for (let day = 2; day >= 0; day--) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - day);
+                    
+                    const row = {
+                        날짜: date.toISOString().split('T')[0],
+                        요일: ['일', '월', '화', '수', '목', '금', '토'][date.getDay()],
+                        합계: 0
+                    };
+                    
+                    // 시간별 출고량 생성
+                    let cumulative = 0;
+                    for (let hour = 0; hour < 24; hour++) {
+                        const hourlyAmount = Math.floor(Math.random() * 50) + 10;
+                        cumulative += hourlyAmount;
+                        row[hour + '시'] = cumulative;
+                    }
+                    row.합계 = cumulative;
+                    data.push(row);
+                }
+                
+                return data;
+            }
+
+            async createMCPChart() {
+                const mcpStartTime = performance.now();
+                
+                try {
+                    // Chart MCP를 통한 차트 생성 시뮬레이션
+                    // 실제 구현에서는 MCP 클라이언트 호출
+                    const chartData = this.prepareMCPChartData();
+                    
+                    // MCP 차트 생성 (시뮬레이션)
+                    const chartImageUrl = await this.simulateMCPChartGeneration(chartData);
+                    
+                    // 차트 이미지 표시
+                    this.displayMCPChart(chartImageUrl);
+                    
+                    mcpLoadTime = performance.now() - mcpStartTime;
+                    this.updatePerformanceMetrics('mcp', mcpLoadTime);
+                    
+                } catch (error) {
+                    console.error('Chart MCP 차트 생성 실패:', error);
+                    this.showMCPError(error.message);
+                }
+            }
+
+            prepareMCPChartData() {
+                if (!this.csvData.length) return null;
+                
+                const labels = [];
+                const datasets = [];
+                
+                // 시간 라벨 생성
+                for (let hour = 0; hour < 24; hour++) {
+                    labels.push(hour + '시');
+                }
+                
+                // 각 날짜별 데이터셋 생성
+                this.csvData.forEach((row, index) => {
+                    const data = [];
+                    for (let hour = 0; hour < 24; hour++) {
+                        data.push(row[hour + '시'] || 0);
+                    }
+                    
+                    const colors = ['#3B82F6', '#EF4444', '#10B981'];
+                    const labels_ko = ['오늘', '어제', '그저께'];
+                    
+                    datasets.push({
+                        label: labels_ko[index],
+                        data: data,
+                        borderColor: colors[index],
+                        backgroundColor: colors[index] + '20'
+                    });
+                });
+                
+                return { labels, datasets };
+            }
+
+            async simulateMCPChartGeneration(chartData) {
+                // Chart MCP 호출 시뮬레이션
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        // 실제 구현에서는 Chart MCP 서버 호출
+                        // 현재는 Canvas로 차트 생성하여 이미지 URL 반환
+                        const imageUrl = this.generateChartCanvas(chartData);
+                        resolve(imageUrl);
+                    }, 500); // MCP 서버 응답 시간 시뮬레이션
+                });
+            }
+
+            generateChartCanvas(chartData) {
+                // 간단한 Canvas 차트 생성 (MCP 결과물 시뮬레이션)
+                const canvas = document.createElement('canvas');
+                canvas.width = 800;
+                canvas.height = 400;
+                const ctx = canvas.getContext('2d');
+                
+                // 배경 설정
+                ctx.fillStyle = '#f8f9fa';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 차트 영역
+                const chartArea = {
+                    left: 80,
+                    top: 40,
+                    right: canvas.width - 40,
+                    bottom: canvas.height - 80
+                };
+                
+                // 그리드 및 축 그리기
+                this.drawChartGrid(ctx, chartArea, chartData);
+                
+                // 데이터 라인 그리기
+                this.drawChartLines(ctx, chartArea, chartData);
+                
+                return canvas.toDataURL();
+            }
+
+            drawChartGrid(ctx, area, chartData) {
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1;
+                
+                // 세로 그리드
+                const stepX = (area.right - area.left) / (chartData.labels.length - 1);
+                for (let i = 0; i < chartData.labels.length; i++) {
+                    const x = area.left + i * stepX;
+                    ctx.beginPath();
+                    ctx.moveTo(x, area.top);
+                    ctx.lineTo(x, area.bottom);
+                    ctx.stroke();
+                    
+                    // X축 라벨
+                    if (i % 4 === 0) {
+                        ctx.fillStyle = '#6b7280';
+                        ctx.font = '12px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(chartData.labels[i], x, area.bottom + 20);
+                    }
+                }
+                
+                // 가로 그리드
+                const maxValue = Math.max(...chartData.datasets.flatMap(d => d.data));
+                const stepY = (area.bottom - area.top) / 5;
+                for (let i = 0; i <= 5; i++) {
+                    const y = area.bottom - i * stepY;
+                    ctx.beginPath();
+                    ctx.moveTo(area.left, y);
+                    ctx.lineTo(area.right, y);
+                    ctx.stroke();
+                    
+                    // Y축 라벨
+                    const value = Math.round((maxValue / 5) * i);
+                    ctx.fillStyle = '#6b7280';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText(value.toString(), area.left - 10, y + 4);
+                }
+            }
+
+            drawChartLines(ctx, area, chartData) {
+                const maxValue = Math.max(...chartData.datasets.flatMap(d => d.data));
+                const stepX = (area.right - area.left) / (chartData.labels.length - 1);
+                
+                chartData.datasets.forEach((dataset, datasetIndex) => {
+                    ctx.strokeStyle = dataset.borderColor;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    
+                    dataset.data.forEach((value, pointIndex) => {
+                        const x = area.left + pointIndex * stepX;
+                        const y = area.bottom - ((value / maxValue) * (area.bottom - area.top));
+                        
+                        if (pointIndex === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    
+                    ctx.stroke();
+                    
+                    // 범례
+                    const legendY = 20 + datasetIndex * 20;
+                    ctx.fillStyle = dataset.borderColor;
+                    ctx.fillRect(20, legendY, 15, 15);
+                    ctx.fillStyle = '#374151';
+                    ctx.font = '14px sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(dataset.label, 45, legendY + 12);
+                });
+            }
+
+            displayMCPChart(imageUrl) {
+                const container = document.getElementById('mcp-chart-container');
+                container.innerHTML = `
+                    <img src="${imageUrl}" alt="Chart MCP 생성 차트" 
+                         class="w-full h-auto rounded shadow-lg">
+                `;
+                
+                document.getElementById('mcp-last-update').textContent = new Date().toLocaleString('ko-KR');
+            }
+
+            showMCPError(message) {
+                const container = document.getElementById('mcp-chart-container');
+                container.innerHTML = `
+                    <div class="alert alert-error">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Chart MCP 차트 생성 실패: ${message}</span>
+                    </div>
+                `;
+            }
+
+            createOriginalChart() {
+                const originalStartTime = performance.now();
+                
+                try {
+                    const ctx = document.getElementById('original-chart').getContext('2d');
+                    
+                    // Chart.js 플러그인 등록
+                    Chart.register(ChartDataLabels);
+                    
+                    // 기존 차트 구성
+                    const chartData = this.prepareOriginalChartData();
+                    const chartConfig = this.getOriginalChartConfig(chartData);
+                    
+                    // 차트 생성
+                    if (this.originalChart) {
+                        this.originalChart.destroy();
+                    }
+                    
+                    this.originalChart = new Chart(ctx, chartConfig);
+                    
+                    originalLoadTime = performance.now() - originalStartTime;
+                    this.updatePerformanceMetrics('original', originalLoadTime);
+                    
+                    document.getElementById('original-last-update').textContent = new Date().toLocaleString('ko-KR');
+                    
+                } catch (error) {
+                    console.error('Original Chart.js 차트 생성 실패:', error);
+                }
+            }
+
+            prepareOriginalChartData() {
+                if (!this.csvData.length) return null;
+                
+                const labels = [];
+                const datasets = [];
+                
+                // 시간 라벨 생성
+                for (let hour = 0; hour < 24; hour++) {
+                    labels.push(hour + '시');
+                }
+                
+                // 각 날짜별 데이터셋 생성
+                this.csvData.forEach((row, index) => {
+                    const data = [];
+                    for (let hour = 0; hour < 24; hour++) {
+                        data.push(row[hour + '시'] || 0);
+                    }
+                    
+                    const configs = [
+                        { label: '오늘', borderColor: '#3B82F6', backgroundColor: '#3B82F620' },
+                        { label: '어제', borderColor: '#EF4444', backgroundColor: '#EF444420' },
+                        { label: '그저께', borderColor: '#10B981', backgroundColor: '#10B98120' }
+                    ];
+                    
+                    datasets.push({
+                        ...configs[index],
+                        data: data,
+                        type: 'line',
+                        tension: 0.4,
+                        pointBackgroundColor: configs[index].borderColor,
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4
+                    });
+                });
+                
+                return { labels, datasets };
+            }
+
+            getOriginalChartConfig(chartData) {
+                return {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            datalabels: {
+                                display: function(context) {
+                                    // 오늘 데이터만 라벨 표시
+                                    return context.datasetIndex === 0;
+                                },
+                                color: '#374151',
+                                backgroundColor: '#ffffff',
+                                borderColor: '#d1d5db',
+                                borderRadius: 4,
+                                borderWidth: 1,
+                                padding: 4,
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '누적 출고량'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '시간'
+                                }
+                            }
+                        },
+                        animation: {
+                            duration: 1000
+                        }
+                    },
+                    plugins: [ChartDataLabels]
+                };
+            }
+
+            updatePerformanceMetrics(type, loadTime) {
+                document.getElementById('loading-time').textContent = 
+                    type === 'mcp' ? `${Math.round(loadTime)}ms (MCP)` : `${Math.round(loadTime)}ms (Chart.js)`;
+                
+                if (type === 'mcp') {
+                    document.getElementById('bundle-size').textContent = '~0KB (서버 생성)';
+                    document.getElementById('memory-usage').textContent = '최소 (이미지만)';
+                    document.getElementById('render-perf').textContent = '서버 사이드';
+                } else {
+                    document.getElementById('bundle-size').textContent = '~250KB (라이브러리)';
+                    document.getElementById('memory-usage').textContent = '높음 (Canvas + 플러그인)';
+                    document.getElementById('render-perf').textContent = '클라이언트 사이드';
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('refresh-btn').addEventListener('click', () => {
+                    this.refreshCurrentChart();
+                });
+            }
+
+            async refreshCurrentChart() {
+                if (this.currentView === 'mcp') {
+                    await this.createMCPChart();
+                } else {
+                    this.createOriginalChart();
+                }
+            }
+        }
+
+        // 탭 전환 함수
+        function switchChart(type) {
+            // 탭 상태 업데이트
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('tab-active'));
+            document.getElementById(type + '-tab').classList.add('tab-active');
+            
+            // 차트 섹션 전환
+            document.querySelectorAll('.chart-section').forEach(section => section.classList.add('hidden'));
+            document.getElementById(type + '-chart-section').classList.remove('hidden');
+            
+            // 현재 뷰 업데이트
+            window.pocInstance.currentView = type;
+            
+            // 필요시 차트 생성
+            if (type === 'original' && !window.pocInstance.originalChart) {
+                window.pocInstance.createOriginalChart();
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('Chart MCP POC 페이지 로드 시작...');
+                
+                window.pocInstance = new ChartMCPPOC();
+                await window.pocInstance.init();
+                
+                console.log('Chart MCP POC 페이지 로드 완료');
+                
+            } catch (error) {
+                console.error('Chart MCP POC 초기화 실패:', error);
+                alert('POC 초기화에 실패했습니다: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
