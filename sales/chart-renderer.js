@@ -1,7 +1,7 @@
 /* global google */
 
 // 차트 렌더링 클래스
-export class ChartRenderer {
+class ChartRenderer {
     constructor() {
         this.charts = {};
         this.isGoogleChartsLoaded = false;
@@ -34,229 +34,184 @@ export class ChartRenderer {
         });
     }
 
-    // 매출 트렌드 라인 차트
-    async renderRevenueChart(containerId, dailyData) {
-        try {
-            const container = document.getElementById(containerId);
-            if (!container) {
-                throw new Error(`Container ${containerId} not found`);
-            }
-
-            // 로딩 표시
-            this.showLoading(container);
-
-            const data = new google.visualization.DataTable();
-            data.addColumn('date', '날짜');
-            data.addColumn('number', '매출');
-            data.addColumn('number', '방문자수');
-
-            const rows = dailyData.map(item => [
-                item.date,
-                item.revenue,
-                item.visitors
-            ]);
-
-            data.addRows(rows);
-
-            const options = {
-                title: '일별 매출 및 방문자 트렌드',
-                titleTextStyle: {
-                    fontSize: 16,
-                    bold: true
-                },
-                hAxis: {
-                    title: '날짜',
-                    format: 'M/d',
-                    titleTextStyle: { fontSize: 12 }
-                },
-                vAxes: {
-                    0: {
-                        title: '매출 (원)',
-                        format: 'currency',
-                        titleTextStyle: { color: '#1f77b4', fontSize: 12 }
-                    },
-                    1: {
-                        title: '방문자수 (명)',
-                        titleTextStyle: { color: '#ff7f0e', fontSize: 12 }
-                    }
-                },
-                series: {
-                    0: { targetAxisIndex: 0, color: '#1f77b4', lineWidth: 3 },
-                    1: { targetAxisIndex: 1, color: '#ff7f0e', lineWidth: 2 }
-                },
-                legend: {
-                    position: 'top',
-                    alignment: 'center'
-                },
-                backgroundColor: 'transparent',
-                chartArea: {
-                    left: 80,
-                    top: 60,
-                    width: '75%',
-                    height: '70%'
-                },
-                curveType: 'function',
-                pointSize: 5,
-                animation: {
-                    startup: true,
-                    duration: 1000,
-                    easing: 'out'
-                }
-            };
-
-            const chart = new google.visualization.LineChart(container);
-            this.charts[containerId] = chart;
-
-            // 툴팁 이벤트 추가
-            this.addTooltipEvents(chart, data);
-
-            chart.draw(data, options);
-            this.hideLoading(container);
-
-        } catch (error) {
-            console.error('매출 차트 렌더링 실패:', error);
-            this.showError(document.getElementById(containerId), '차트를 로드할 수 없습니다.');
+    // 매출 트렌드 차트
+    renderRevenueTrend(data, containerId) {
+        if (!data || data.length === 0) {
+            this.showError(containerId, '데이터가 없습니다.');
+            return;
         }
+
+        // 일별 데이터 집계
+        const dailyData = {};
+        data.forEach(row => {
+            const dateStr = row.날짜.toISOString().split('T')[0];
+            const revenue = parseFloat(row.매출) || 0;
+            const quantity = parseInt(row.수량) || 0;
+            
+            if (!dailyData[dateStr]) {
+                dailyData[dateStr] = { revenue: 0, quantity: 0 };
+            }
+            dailyData[dateStr].revenue += revenue;
+            dailyData[dateStr].quantity += quantity;
+        });
+
+        const chartData = new google.visualization.DataTable();
+        chartData.addColumn('date', '날짜');
+        chartData.addColumn('number', '매출');
+        chartData.addColumn('number', '수량');
+
+        Object.entries(dailyData)
+            .sort(([a], [b]) => new Date(a) - new Date(b))
+            .forEach(([date, info]) => {
+                chartData.addRow([
+                    new Date(date),
+                    info.revenue,
+                    info.quantity
+                ]);
+            });
+
+        const options = {
+            title: '일별 매출 및 수량 추이',
+            titleTextStyle: { fontSize: 16, bold: true },
+            hAxis: {
+                title: '날짜',
+                format: 'MM/dd',
+                titleTextStyle: { fontSize: 12 }
+            },
+            vAxes: {
+                0: {
+                    title: '매출 (원)',
+                    format: '#,###',
+                    titleTextStyle: { color: '#1f77b4', fontSize: 12 }
+                },
+                1: {
+                    title: '수량',
+                    titleTextStyle: { color: '#ff7f0e', fontSize: 12 }
+                }
+            },
+            series: {
+                0: { type: 'line', targetAxisIndex: 0, color: '#1f77b4', lineWidth: 3 },
+                1: { type: 'line', targetAxisIndex: 1, color: '#ff7f0e', lineWidth: 3 }
+            },
+            backgroundColor: 'transparent',
+            legend: { position: 'top', alignment: 'center' },
+            chartArea: { left: 80, top: 60, width: '75%', height: '70%' },
+            curveType: 'function'
+        };
+
+        const chart = new google.visualization.ComboChart(document.getElementById(containerId));
+        chart.draw(chartData, options);
+        this.charts[containerId] = chart;
     }
 
     // 카테고리별 파이 차트
-    async renderCategoryChart(containerId, categoryData) {
-        try {
-            const container = document.getElementById(containerId);
-            if (!container) {
-                throw new Error(`Container ${containerId} not found`);
-            }
-
-            this.showLoading(container);
-
-            const data = new google.visualization.DataTable();
-            data.addColumn('string', '카테고리');
-            data.addColumn('number', '매출');
-
-            const rows = Object.entries(categoryData).map(([category, info]) => [
-                category,
-                info.revenue
-            ]);
-
-            data.addRows(rows);
-
-            const options = {
-                title: '카테고리별 매출 분포',
-                titleTextStyle: {
-                    fontSize: 16,
-                    bold: true
-                },
-                pieHole: 0.4,
-                colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'],
-                legend: {
-                    position: 'right',
-                    alignment: 'center'
-                },
-                backgroundColor: 'transparent',
-                chartArea: {
-                    left: 20,
-                    top: 60,
-                    width: '70%',
-                    height: '70%'
-                },
-                animation: {
-                    startup: true,
-                    duration: 1000,
-                    easing: 'out'
-                },
-                tooltip: {
-                    text: 'percentage'
-                }
-            };
-
-            const chart = new google.visualization.PieChart(container);
-            this.charts[containerId] = chart;
-
-            chart.draw(data, options);
-            this.hideLoading(container);
-
-        } catch (error) {
-            console.error('카테고리 차트 렌더링 실패:', error);
-            this.showError(document.getElementById(containerId), '차트를 로드할 수 없습니다.');
+    renderCategoryChart(data) {
+        if (!data || data.length === 0) {
+            this.showError('categoryChart', '데이터가 없습니다.');
+            return;
         }
+
+        // 카테고리별 매출 집계
+        const categoryData = {};
+        data.forEach(row => {
+            const category = row.카테고리 || '기타';
+            const revenue = parseFloat(row.매출) || 0;
+            categoryData[category] = (categoryData[category] || 0) + revenue;
+        });
+
+        const chartData = new google.visualization.DataTable();
+        chartData.addColumn('string', '카테고리');
+        chartData.addColumn('number', '매출');
+
+        Object.entries(categoryData).forEach(([category, revenue]) => {
+            chartData.addRow([category, revenue]);
+        });
+
+        const options = {
+            title: '카테고리별 매출 분포',
+            titleTextStyle: { fontSize: 16, bold: true },
+            backgroundColor: 'transparent',
+            legend: { position: 'right', alignment: 'center' },
+            chartArea: { left: 20, top: 60, width: '70%', height: '70%' },
+            pieSliceText: 'percentage',
+            pieSliceTextStyle: { fontSize: 12 },
+            colors: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'],
+            tooltip: {
+                text: 'both',
+                textStyle: { fontSize: 12 }
+            }
+        };
+
+        const chart = new google.visualization.PieChart(document.getElementById('categoryChart'));
+        chart.draw(chartData, options);
+        this.charts.categoryChart = chart;
     }
 
     // 지역별 막대 차트
-    async renderRegionChart(containerId, regionData) {
-        try {
-            const container = document.getElementById(containerId);
-            if (!container) {
-                throw new Error(`Container ${containerId} not found`);
-            }
-
-            this.showLoading(container);
-
-            const data = new google.visualization.DataTable();
-            data.addColumn('string', '지역');
-            data.addColumn('number', '매출');
-            data.addColumn('number', '방문자수');
-
-            const rows = Object.entries(regionData).map(([region, info]) => [
-                region,
-                info.revenue,
-                info.visitors
-            ]);
-
-            data.addRows(rows);
-
-            const options = {
-                title: '지역별 매출 및 방문자 현황',
-                titleTextStyle: {
-                    fontSize: 16,
-                    bold: true
-                },
-                hAxis: {
-                    title: '지역',
-                    titleTextStyle: { fontSize: 12 }
-                },
-                vAxes: {
-                    0: {
-                        title: '매출 (원)',
-                        format: 'currency',
-                        titleTextStyle: { color: '#1f77b4', fontSize: 12 }
-                    },
-                    1: {
-                        title: '방문자수 (명)',
-                        titleTextStyle: { color: '#ff7f0e', fontSize: 12 }
-                    }
-                },
-                series: {
-                    0: { targetAxisIndex: 0, color: '#1f77b4', type: 'columns' },
-                    1: { targetAxisIndex: 1, color: '#ff7f0e', type: 'line', lineWidth: 3, pointSize: 8 }
-                },
-                legend: {
-                    position: 'top',
-                    alignment: 'center'
-                },
-                backgroundColor: 'transparent',
-                chartArea: {
-                    left: 80,
-                    top: 60,
-                    width: '75%',
-                    height: '70%'
-                },
-                animation: {
-                    startup: true,
-                    duration: 1000,
-                    easing: 'out'
-                }
-            };
-
-            const chart = new google.visualization.ComboChart(container);
-            this.charts[containerId] = chart;
-
-            chart.draw(data, options);
-            this.hideLoading(container);
-
-        } catch (error) {
-            console.error('지역 차트 렌더링 실패:', error);
-            this.showError(document.getElementById(containerId), '차트를 로드할 수 없습니다.');
+    renderRegionChart(data) {
+        if (!data || data.length === 0) {
+            this.showError('regionChart', '데이터가 없습니다.');
+            return;
         }
+
+        // 지역별 매출 집계
+        const regionData = {};
+        data.forEach(row => {
+            const region = row.지역 || '기타';
+            const revenue = parseFloat(row.매출) || 0;
+            const quantity = parseInt(row.수량) || 0;
+            
+            if (!regionData[region]) {
+                regionData[region] = { revenue: 0, quantity: 0 };
+            }
+            regionData[region].revenue += revenue;
+            regionData[region].quantity += quantity;
+        });
+
+        const chartData = new google.visualization.DataTable();
+        chartData.addColumn('string', '지역');
+        chartData.addColumn('number', '매출');
+        chartData.addColumn('number', '수량');
+
+        Object.entries(regionData).forEach(([region, info]) => {
+            chartData.addRow([region, info.revenue, info.quantity]);
+        });
+
+        const options = {
+            title: '지역별 성과',
+            titleTextStyle: { fontSize: 16, bold: true },
+            hAxis: {
+                title: '지역',
+                titleTextStyle: { fontSize: 12 }
+            },
+            vAxes: {
+                0: {
+                    title: '매출 (원)',
+                    format: '#,###',
+                    titleTextStyle: { color: '#1f77b4', fontSize: 12 }
+                },
+                1: {
+                    title: '수량',
+                    titleTextStyle: { color: '#ff7f0e', fontSize: 12 }
+                }
+            },
+            series: {
+                0: { targetAxisIndex: 0, color: '#1f77b4', type: 'columns' },
+                1: { targetAxisIndex: 1, color: '#ff7f0e', type: 'line', lineWidth: 3 }
+            },
+            backgroundColor: 'transparent',
+            legend: { position: 'top', alignment: 'center' },
+            chartArea: { left: 80, top: 60, width: '75%', height: '70%' },
+            animation: {
+                startup: true,
+                duration: 1000,
+                easing: 'out'
+            }
+        };
+
+        const chart = new google.visualization.ComboChart(document.getElementById('regionChart'));
+        chart.draw(chartData, options);
+        this.charts.regionChart = chart;
     }
 
     // 산점도 차트 (방문자 vs 전환율)
@@ -331,6 +286,73 @@ export class ChartRenderer {
             console.error('산점도 차트 렌더링 실패:', error);
             this.showError(document.getElementById(containerId), '차트를 로드할 수 없습니다.');
         }
+    }
+
+    // 변환율 분석 차트
+    renderConversionChart(data) {
+        if (!data || data.length === 0) {
+            this.showError('conversionChart', '데이터가 없습니다.');
+            return;
+        }
+
+        // 일별 변환율 계산
+        const dailyData = {};
+        data.forEach(row => {
+            const dateStr = row.날짜.toISOString().split('T')[0];
+            const quantity = parseInt(row.수량) || 0;
+            const visitors = parseInt(row.방문자) || 1; // 기본값 1로 설정하여 0으로 나누기 방지
+            
+            if (!dailyData[dateStr]) {
+                dailyData[dateStr] = { totalQuantity: 0, totalVisitors: 0 };
+            }
+            dailyData[dateStr].totalQuantity += quantity;
+            dailyData[dateStr].totalVisitors += visitors;
+        });
+
+        const chartData = new google.visualization.DataTable();
+        chartData.addColumn('number', '방문자수');
+        chartData.addColumn('number', '변환율 (%)');
+        chartData.addColumn('string', '날짜');
+
+        Object.entries(dailyData).forEach(([date, info]) => {
+            const conversionRate = (info.totalQuantity / info.totalVisitors) * 100;
+            chartData.addRow([
+                info.totalVisitors,
+                parseFloat(conversionRate.toFixed(2)),
+                date
+            ]);
+        });
+
+        const options = {
+            title: '방문자수 vs 변환율 분석',
+            titleTextStyle: { fontSize: 16, bold: true },
+            hAxis: {
+                title: '방문자수 (명)',
+                titleTextStyle: { fontSize: 12 }
+            },
+            vAxis: {
+                title: '변환율 (%)',
+                titleTextStyle: { fontSize: 12 }
+            },
+            backgroundColor: 'transparent',
+            legend: 'none',
+            chartArea: { left: 80, top: 60, width: '75%', height: '70%' },
+            pointSize: 8,
+            colors: ['#2ca02c'],
+            animation: {
+                startup: true,
+                duration: 1000,
+                easing: 'out'
+            },
+            tooltip: {
+                trigger: 'selection',
+                textStyle: { fontSize: 12 }
+            }
+        };
+
+        const chart = new google.visualization.ScatterChart(document.getElementById('conversionChart'));
+        chart.draw(chartData, options);
+        this.charts.conversionChart = chart;
     }
 
     // 툴팁 이벤트 추가
