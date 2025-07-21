@@ -433,7 +433,10 @@ class Dashboard {
                         datalabels: {
                             display: true,
                             formatter: function(value) {
-                                return value.toLocaleString();
+                                if (value === null || value === undefined || isNaN(value) || value === 0) return '';
+                                const numValue = Number(value);
+                                if (isNaN(numValue)) return '';
+                                return numValue.toLocaleString();
                             }
                         }
                     }]
@@ -539,15 +542,19 @@ class Dashboard {
                                 }
                             },
                             formatter: function(value, context) {
-                                if (value === null || value === undefined) return '';
+                                if (value === null || value === undefined || isNaN(value) || value === 0) return '';
+                                
+                                // 숫자로 변환하여 안전하게 처리
+                                const numValue = Number(value);
+                                if (isNaN(numValue)) return '';
                                 
                                 if (context.datasetIndex === 3) {
                                     // 막대그래프: 값만 표시
-                                    return value.toLocaleString();
+                                    return numValue.toLocaleString();
                                 } else {
                                     // 선그래프: 예측값에 * 표시
                                     const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
-                                    return isPredicted ? value.toLocaleString() + '*' : value.toLocaleString();
+                                    return isPredicted ? numValue.toLocaleString() + '*' : numValue.toLocaleString();
                                 }
                             },
                             padding: {
@@ -600,7 +607,10 @@ class Dashboard {
                                 },
                                 padding: 10,
                                 callback: function(value) {
-                                    return value.toLocaleString();
+                                    if (value === null || value === undefined || isNaN(value)) return '';
+                                    const numValue = Number(value);
+                                    if (isNaN(numValue)) return '';
+                                    return numValue.toLocaleString();
                                 }
                             },
                             grid: {
