@@ -433,7 +433,7 @@ class Dashboard {
                         datalabels: {
                             display: true,
                             formatter: function(value) {
-                                return '+' + value;
+                                return value.toLocaleString();
                             }
                         }
                     }]
@@ -466,34 +466,27 @@ class Dashboard {
                         datalabels: {
                             display: function(context) {
                                 const value = context.dataset.data[context.dataIndex];
-                                console.log(`라벨 표시 확인 - Dataset: ${context.datasetIndex}, Index: ${context.dataIndex}, Value: ${value}`);
                                 
                                 // 값이 없거나 0 이하면 라벨 숨김
                                 if (value === null || value === undefined || value <= 0) {
-                                    console.log(`라벨 숨김 - 값이 유효하지 않음: ${value}`);
                                     return false;
                                 }
                                 
                                 // 오늘 데이터 (dataset 0): 모든 시간대 라벨 표시
                                 if (context.datasetIndex === 0) {
-                                    console.log(`오늘 데이터 라벨 표시 - Dataset: ${context.datasetIndex}, Value: ${value}`);
                                     return true;
                                 }
                                 
-                                // 어제/그저께 (datasets 1,2): 23시만 라벨 표시
+                                // 어제/그저께 (datasets 1,2): 라벨 표시 안함 (가독성을 위해)
                                 if (context.datasetIndex === 1 || context.datasetIndex === 2) {
-                                    const is23Hour = context.dataIndex === 23;
-                                    console.log(`과거 데이터 - Dataset: ${context.datasetIndex}, Index: ${context.dataIndex}, Is23Hour: ${is23Hour}, Value: ${value}`);
-                                    return is23Hour;
+                                    return false;
                                 }
                                 
                                 // 막대 그래프 (dataset 3): 모든 값 표시
                                 if (context.datasetIndex === 3) {
-                                    console.log(`막대 그래프 라벨 표시 - Dataset: ${context.datasetIndex}, Value: ${value}`);
                                     return true;
                                 }
                                 
-                                console.log(`라벨 표시 안함 - 조건에 맞지 않음`);
                                 return false;
                             },
                             color: function(context) {
@@ -549,8 +542,8 @@ class Dashboard {
                                 if (value === null || value === undefined) return '';
                                 
                                 if (context.datasetIndex === 3) {
-                                    // 막대그래프: +기호와 함께 표시
-                                    return '+' + value.toLocaleString();
+                                    // 막대그래프: 값만 표시
+                                    return value.toLocaleString();
                                 } else {
                                     // 선그래프: 예측값에 * 표시
                                     const isPredicted = context.dataset.isPredicted && context.dataset.isPredicted[context.dataIndex];
